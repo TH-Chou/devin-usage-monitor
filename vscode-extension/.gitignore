@@ -1,0 +1,6 @@
+node_modules/
+python/devin_token_monitor/
+python/prices.json
+media/dashboard.html
+media/icon.png
+*.vsix

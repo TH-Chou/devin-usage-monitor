@@ -3,7 +3,7 @@
 
   <p>
     <a href="https://github.com/TH-Chou/devin-usage-monitor/releases"><img alt="release" src="https://img.shields.io/github/v/release/TH-Chou/devin-usage-monitor?color=5b6cff&label=release"></a>
-    <img alt="platform" src="https://img.shields.io/badge/platform-macOS%2012%2B-000000?logo=apple&logoColor=white">
+    <img alt="platform" src="https://img.shields.io/badge/native%20app-macOS%2012%2B-000000?logo=apple&logoColor=white">
     <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white">
     <img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-blue">
   </p>
@@ -12,8 +12,8 @@
     <a href="README.md">English</a> · <b>简体中文</b>
   </p>
 
-  <p><i>原生 macOS 应用，监控本地 Devin CLI 的 token 用量 ——<br>
-  菜单栏实时费用 + Liquid Glass 仪表盘。</i></p>
+  <p><i>监控本地 Devin CLI token 用量与估算费用 ——<br>
+  可选原生 macOS App，或直接集成到 VS Code 系列桌面 IDE。</i></p>
 </div>
 
 ---
@@ -36,6 +36,7 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 | **CSV 导出** | requests / sessions / daily / models，原生保存面板、⌘E 或 Web API。 |
 | **六种语言** | 中文 · English · 日本語 · 한국어 · Español · Tiếng Việt —— 持久化保存，页面与原生界面同时生效。 |
 | **自动刷新** | `row_id` 水位线增量轮询（约 15s）；启动时全量聚合约 0.3s。 |
+| **IDE 扩展** | 面向桌面版 VS Code 和兼容 IDE 的 VSIX：状态栏费用、仪表盘 Webview、数据库选择、价格表编辑与 CSV 导出。 |
 
 ## 安装
 
@@ -46,7 +47,20 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 > **要求**：macOS 12+，且本机已有 Devin CLI 数据
 > （`~/.local/share/devin/cli/sessions.db`，用过 Devin 即有）。
 
-## 源码构建
+## VS Code 系列 IDE
+
+从源码构建并安装 VSIX：
+
+```bash
+cd vscode-extension
+npm install
+npm run package
+code --install-extension devin-token-monitor-0.2.7.vsix
+```
+
+随后在命令面板运行 **Devin Token Monitor: Open Dashboard**。要求本机 Python 3.10+。Cursor 支持 VSIX 兼容扩展；Windsurf 和其他分支版本的兼容性取决于其当前 VS Code API 与扩展安装策略。浏览器版 VS Code（`vscode.dev` / `github.dev`）不支持，因为它不能启动本机 Python worker 或访问本地 SQLite 数据库。详见 [`vscode-extension/README.md`](vscode-extension/README.md) 和[兼容性调研](vscode-extension/RESEARCH.md)。
+
+## macOS App 源码构建
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -68,8 +82,10 @@ Devin CLI 将每条会话消息以 JSON 存入
 `request_id` 和时间戳。监控器以**只读**方式打开数据库，按 `row_id`
 水位线增量拉取，并按 `request_id` 去重复制记录（`message_id` 兜底）。
 
-每轮轮询把 JSON 快照直接 `evaluateJavaScript` 推进页面；页面动作
-（刷新 / 导出 / 设置 / 语言）经 `webkit.messageHandlers` 回传。
+原生 App 通过 `evaluateJavaScript` 推送快照，页面动作经
+`webkit.messageHandlers` 回传。IDE 扩展由本机 Node 扩展宿主启动随包
+Python worker，通过 stdio 上的 JSON Lines 通信；复用相同的聚合模块和仪表盘，
+不监听本地 HTTP 端口。
 
 > **说明**：Devin credits/ACU 在服务端，不在本地库中 —— 本应用统计
 > token 并按 `prices.json` **估算**费用。
@@ -104,6 +120,7 @@ devin_token_monitor/
   gui.py         原生窗口 App（NSWindow + WKWebView + 状态栏）
   app.py         rumps 菜单栏 App（内嵌 Web 服务）
   cli.py         一次性文本报表
+vscode-extension/ VS Code 系列 IDE VSIX（Node 宿主 + Python worker）
 gui_entry.py     py2app 入口            setup_gui.py   py2app 配置 + 图标
 tools/           PIL 图标与头图生成器
 assets/          AppIcon.icns、源 PNG、README 头图

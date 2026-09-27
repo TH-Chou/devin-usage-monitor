@@ -1,0 +1,100 @@
+{
+  "name": "devin-token-monitor",
+  "displayName": "Devin Token Monitor",
+  "description": "Monitor local Devin CLI token usage and estimated cost from VS Code, Cursor, and compatible desktop IDEs.",
+  "version": "0.2.7",
+  "publisher": "th-chou",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/TH-Chou/devin-usage-monitor",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TH-Chou/devin-usage-monitor.git",
+    "directory": "vscode-extension"
+  },
+  "bugs": {
+    "url": "https://github.com/TH-Chou/devin-usage-monitor/issues"
+  },
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "extensionKind": [
+    "ui"
+  ],
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "devin",
+    "tokens",
+    "usage",
+    "cost",
+    "dashboard"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "devinTokenMonitor.openDashboard",
+        "title": "Devin Token Monitor: Open Dashboard"
+      },
+      {
+        "command": "devinTokenMonitor.refresh",
+        "title": "Devin Token Monitor: Refresh Usage"
+      },
+      {
+        "command": "devinTokenMonitor.selectDatabase",
+        "title": "Devin Token Monitor: Select Sessions Database"
+      },
+      {
+        "command": "devinTokenMonitor.openPrices",
+        "title": "Devin Token Monitor: Open Price Table"
+      }
+    ],
+    "configuration": {
+      "title": "Devin Token Monitor",
+      "properties": {
+        "devinTokenMonitor.pythonPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path or command name for Python 3.10+. Leave empty to use `python3` (macOS/Linux) or `python` (Windows)."
+        },
+        "devinTokenMonitor.databasePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to Devin's `sessions.db`. Leave empty to use the default `~/.local/share/devin/cli/sessions.db`; supports `~` and environment-variable expansion."
+        },
+        "devinTokenMonitor.pricesPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Optional custom `prices.json` path. Leave empty to use the extension's persistent user data copy (or the shared `~/.devin-token-monitor/prices.json` when present)."
+        },
+        "devinTokenMonitor.refreshInterval": {
+          "type": "number",
+          "default": 15,
+          "minimum": 5,
+          "maximum": 3600,
+          "markdownDescription": "Automatic refresh interval in seconds."
+        },
+        "devinTokenMonitor.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show today's estimated cost in the VS Code status bar."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "stage": "node scripts/stage.js",
+    "test": "npm run stage && node --test tests/*.test.js && node scripts/test.js",
+    "package": "npm run stage && vsce package --no-dependencies",
+    "vscode:prepublish": "npm run stage"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "3.6.0"
+  }
+}

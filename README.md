@@ -3,7 +3,7 @@
 
   <p>
     <a href="https://github.com/TH-Chou/devin-usage-monitor/releases"><img alt="release" src="https://img.shields.io/github/v/release/TH-Chou/devin-usage-monitor?color=5b6cff&label=release"></a>
-    <img alt="platform" src="https://img.shields.io/badge/platform-macOS%2012%2B-000000?logo=apple&logoColor=white">
+    <img alt="platform" src="https://img.shields.io/badge/native%20app-macOS%2012%2B-000000?logo=apple&logoColor=white">
     <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white">
     <img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-blue">
   </p>
@@ -12,8 +12,8 @@
     <b>English</b> · <a href="README.zh-CN.md">简体中文</a>
   </p>
 
-  <p><i>A native macOS app that watches your local Devin CLI token usage —<br>
-  menu-bar cost at a glance, a Liquid Glass dashboard for the details.</i></p>
+  <p><i>Monitor local Devin CLI token usage and estimated cost —<br>
+  from a native macOS app or directly inside a VS Code-compatible desktop IDE.</i></p>
 </div>
 
 ---
@@ -37,6 +37,7 @@ no account, nothing leaves your Mac.
 | **CSV export** | Requests / sessions / daily / models via a native save panel, ⌘E, or the web API. |
 | **Six languages** | 中文 · English · 日本語 · 한국어 · Español · Tiếng Việt — persisted, applied to web view *and* native chrome. |
 | **Auto refresh** | Incremental `row_id` watermark polling (~15 s); launch-time full aggregation ≈ 0.3 s. |
+| **IDE extension** | VSIX for desktop VS Code and compatible IDEs: status-bar cost, dashboard Webview, database picker, price-table editing, and CSV export. |
 
 ## Install
 
@@ -48,7 +49,20 @@ It's unsigned — on first launch use right-click → **Open**.
 > **Requirements:** macOS 12+, and local Devin CLI data at
 > `~/.local/share/devin/cli/sessions.db` (present once you've used Devin).
 
-## Build from source
+## VS Code-compatible IDEs
+
+Build and install the VSIX from source:
+
+```bash
+cd vscode-extension
+npm install
+npm run package
+code --install-extension devin-token-monitor-0.2.7.vsix
+```
+
+Then run **Devin Token Monitor: Open Dashboard** from the Command Palette. Requires Python 3.10+ on the local machine. Cursor supports VSIX-compatible extensions; Windsurf and other forks may vary by version and extension-install policy. Browser-only VS Code (`vscode.dev` / `github.dev`) is not supported because it cannot spawn the local Python worker or access the local SQLite database. See [`vscode-extension/README.md`](vscode-extension/README.md) and [the compatibility research](vscode-extension/RESEARCH.md).
+
+## Build the macOS app from source
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -71,9 +85,11 @@ messages carry `metadata.metrics` — `input_tokens`, `output_tokens`,
 incremental `row_id` watermark, and deduplicates replicated message-tree
 records by `request_id` (fallback: `message_id`).
 
-Each poll pushes a JSON snapshot straight into the page via
-`evaluateJavaScript`; page actions (refresh / export / settings / language)
-come back through `webkit.messageHandlers`.
+The native app pushes snapshots through `evaluateJavaScript` and receives
+page actions over `webkit.messageHandlers`. The IDE extension uses a local
+Node extension host and a bundled Python worker over newline-delimited stdio
+JSON; it reuses the same aggregation modules and dashboard without opening a
+local HTTP port.
 
 > **Note:** Devin credits/ACU are server-side and not in the local DB —
 > the app counts *tokens* and *estimates* cost from `prices.json`.
@@ -110,6 +126,7 @@ devin_token_monitor/
   gui.py         native window app (NSWindow + WKWebView + status item)
   app.py         rumps menu-bar app (embeds the web server)
   cli.py         one-shot text report
+vscode-extension/ VS Code-compatible VSIX (Node host + bundled Python worker)
 gui_entry.py     py2app entry point     setup_gui.py   py2app config + icon
 tools/           PIL icon & banner generators
 assets/          AppIcon.icns, source PNGs, README banner
