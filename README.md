@@ -40,6 +40,7 @@ no account, usage data stays on your machine.
 | **IDE extension** | VSIX for desktop VS Code and compatible IDEs: status-bar cost, dashboard Webview, database picker, price-table editing, and CSV export. |
 | **Six visual themes** | System, Midnight, Graphite, Warm Paper, Deep Ocean, and Forest palettes; choice persists across app sessions. |
 | **Token analytics** | Rolling 7/30-day and month-to-date summaries, run-rate projection, estimated cache savings, output efficiency, model comparisons, and P50/P90 request-size and latency distributions. |
+| **Resilient local data** | Read-only SQLite access handles URI-special paths and database replacement; source-health status surfaces polling errors. User edits are saved outside the installed app bundle. |
 
 ## Install
 
@@ -59,7 +60,7 @@ Build and install the VSIX from source:
 cd vscode-extension
 npm install
 npm run package
-code --install-extension devin-token-monitor-0.2.8.vsix
+code --install-extension devin-token-monitor-0.3.0.vsix
 ```
 
 Then run **Devin Token Monitor: Open Dashboard** from the Command Palette. Requires Python 3.10+ on the local machine. Cursor supports VSIX-compatible extensions; Windsurf and other forks may vary by version and extension-install policy. Browser-only VS Code (`vscode.dev` / `github.dev`) is not supported because it cannot spawn the local Python worker or access the local SQLite database. See [`vscode-extension/README.md`](vscode-extension/README.md) and [the compatibility research](vscode-extension/RESEARCH.md).
@@ -100,8 +101,9 @@ local HTTP port.
 
 `prices.json` resolves in order:
 `$DTM_PRICES` → `~/.devin-token-monitor/prices.json` → bundled app resource →
-repo copy. `settings.daily_budget` enables alerts; `settings.language` picks
-the UI language.
+repo copy. On first edit, the active seed table is copied to the writable user
+file; the installed app bundle is never modified. `settings.daily_budget`
+enables alerts; `settings.language` and `settings.theme` persist UI preferences.
 
 | Env var | Purpose | Default |
 |---|---|---|

@@ -10,9 +10,10 @@ import sys
 
 import rumps
 
+from . import __version__
 from .aggregator import UsageAggregator, format_cost, format_tokens
 from .db import db_path
-from .pricing import PriceTable, default_prices_path
+from .pricing import PriceTable, default_prices_path, editable_prices_path
 from .web import start_server
 
 POLL_SECONDS = 15
@@ -29,6 +30,12 @@ class DevinTokenMonitor(rumps.App):
     def __init__(self):
         super().__init__("⚡…", quit_button=None)
         self.agg = UsageAggregator(PriceTable.load())
+        self.agg.meta = {
+            "db_path": str(db_path()),
+            "prices_path": str(default_prices_path()),
+            "version": __version__,
+            "login_item": None,
+        }
         self.dashboard_url = None
         try:
             _srv, self.dashboard_url = start_server(self.agg)
@@ -84,10 +91,13 @@ class DevinTokenMonitor(rumps.App):
 
     def on_refresh(self, _item):
         self.agg.prices = PriceTable.load()  # pick up price edits too
+        self.agg.meta["prices_path"] = str(default_prices_path())
         self.on_poll(None)
 
     def on_edit_prices(self, _item):
-        subprocess.Popen(["open", "-t", str(default_prices_path())])
+        path = editable_prices_path()
+        self.agg.meta["prices_path"] = str(path)
+        subprocess.Popen(["open", "-t", str(path)])
 
     def on_open_dashboard(self, _item):
         subprocess.Popen(["open", self.dashboard_url])

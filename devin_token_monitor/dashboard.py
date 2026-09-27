@@ -149,6 +149,8 @@ header h1 { font-size:22px; font-weight:650; margin:0; letter-spacing:-.035em; }
         color:var(--green); }
 .live i { width:6px;height:6px;border-radius:50%;background:var(--green);
           box-shadow:0 0 0 3px rgba(52,199,89,.08); }
+.live.offline{color:var(--red)}
+.live.offline i{background:var(--red);box-shadow:0 0 0 3px rgba(255,69,58,.10);animation:none}
 @keyframes pulse { 50%{opacity:.35;transform:scale(.8);} }
 .spacer { flex:1; }
 .upd { color:var(--faint); font-size:11.5px; font-variant-numeric:tabular-nums; }
@@ -486,7 +488,7 @@ html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[da
   <main>
     <header>
       <h1 id="view-title">概览</h1>
-      <span class="live"><i></i><span data-i18n="live">实时</span></span>
+      <span class="live" id="source-status"><i></i><span data-i18n="live">实时</span></span>
       <span class="spacer"></span>
       <span class="upd"><span data-i18n="updated">更新于</span> <span id="updated">—</span></span>
       <button class="btn" id="btn-refresh">↻ <span data-i18n="refresh">刷新</span></button>
@@ -706,6 +708,7 @@ const easeOut=t=>1-Math.pow(1-t,4);
 // ---------- i18n ----------
 let LANG='zh';
 const LOCALE={zh:'zh-CN',en:'en-US',ja:'ja-JP',ko:'ko-KR',es:'es-ES',vi:'vi-VN'};
+const OFFLINE_LABEL={zh:'数据源不可用',en:'Source offline',ja:'データソースを利用できません',ko:'데이터 소스를 사용할 수 없음',es:'Fuente sin conexión',vi:'Nguồn dữ liệu ngoại tuyến'};
 const I18N={
 zh:{nav_overview:'概览',nav_models:'模型',nav_sessions:'会话',nav_requests:'请求',nav_settings:'设置',
 logo_sub:'用量与费用',sf_today:'今日费用',sf_reqs:'{n} 次请求',live:'实时',updated:'更新于',refresh:'刷新',export:'导出',
@@ -1425,7 +1428,7 @@ document.getElementById('drawer-x').onclick=()=>
 const filt={model:'',q:'',date:'',day:''};
 function setModelFilter(m){
   filt.model=m;document.getElementById('f-model').value=m;
-  document.querySelectorAll('nav a')[3].click();renderFeed();}
+  navigateTo('requests');renderFeed();}
 const reqDay=r=>r.ts.slice(0,10);
 function filteredReqs(){
   const today=dayKey(new Date()),lim=dayKey(new Date(Date.now()-6*864e5));
@@ -1488,7 +1491,9 @@ document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
 // ---------- header + settings actions ----------
 function doRefresh(){
   if(native_)native_.postMessage({action:'refresh'});
-  else fetch('/api/refresh').then(r=>r.json()).then(update);}
+  else fetch('/api/refresh').then(async r=>{const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Refresh failed');return d;})
+    .then(update).catch(e=>toast(e.message));}
 function doExport(){
   if(native_)native_.postMessage({action:'export'});
   else location.href='/api/export.csv?what=requests';}
@@ -1641,6 +1646,10 @@ function update(d){
   LANG=(d.settings&&d.settings.language)||'zh';
   applyTheme((d.settings&&d.settings.theme)||'system');
   applyLang();
+  const health=document.getElementById('source-status'),pollError=(d.meta||{}).poll_error;
+  health.classList.toggle('offline',Boolean(pollError));
+  health.title=pollError||'';
+  health.querySelector('span').textContent=pollError?(OFFLINE_LABEL[LANG]||OFFLINE_LABEL.en):t('live');
   const updated=document.getElementById('updated');
   updated.textContent=new Date(d.generated_at).toLocaleTimeString(LOCALE[LANG]||'zh-CN',
     {hour:'2-digit',minute:'2-digit',hour12:false});

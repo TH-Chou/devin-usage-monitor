@@ -18,6 +18,7 @@ from typing import Iterable
 from .db import (
     UsageRow,
     connect,
+    db_path,
     fetch_message_body,
     fetch_usage_rows,
 )
@@ -126,6 +127,22 @@ class UsageAggregator:
         # copies) — same request/message id, same metrics. Dedupe so each
         # inference request counts once.
         self._seen: set[str] = set()
+        self._db_identity: tuple[int, int] | None = None
+
+    def _reset_usage(self) -> None:
+        self.watermark = 0
+        self.total = UsageStats()
+        self.by_model.clear()
+        self.by_day.clear()
+        self.by_day_model.clear()
+        self.by_hour.clear()
+        self.by_hour_model.clear()
+        self.by_weekhour.clear()
+        self.by_weekhour_model.clear()
+        self.by_session.clear()
+        self.recent.clear()
+        self._seen.clear()
+        self.new_requests = 0
 
     def _ingest(self, rows: Iterable[UsageRow]) -> int:
         n = 0
@@ -186,14 +203,31 @@ class UsageAggregator:
     def poll(self) -> int:
         """Fold new rows into the aggregates. Returns rows ingested."""
         with self.lock:
-            conn = connect()
+            conn = None
             try:
+                conn = connect()
+                stat = db_path().stat()
+                identity = (stat.st_dev, stat.st_ino)
+                maximum = conn.execute(
+                    "SELECT COALESCE(MAX(row_id), 0) FROM message_nodes"
+                ).fetchone()[0]
+                if self._db_identity is not None and (
+                    identity != self._db_identity or maximum < self.watermark
+                ):
+                    self._reset_usage()
+                self._db_identity = identity
                 self.new_requests = self._ingest(
                     fetch_usage_rows(conn, self.watermark)
                 )
+                self.meta.pop("poll_error", None)
+                self.meta["poll_last_ok"] = datetime.now().astimezone().isoformat(timespec="seconds")
+                return self.new_requests
+            except Exception as exc:
+                self.meta["poll_error"] = str(exc)
+                raise
             finally:
-                conn.close()
-            return self.new_requests
+                if conn is not None:
+                    conn.close()
 
     # ---- views -----------------------------------------------------------
 
@@ -254,6 +288,24 @@ class UsageAggregator:
         if cost is not None:
             d["cost"] = round(cost, 4)
         return d
+
+    def status_summary(self) -> dict:
+        with self.lock:
+            today = datetime.now().astimezone().date().isoformat()
+            return {
+                "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                "meta": dict(self.meta),
+                "poll": {"watermark": self.watermark, "new_requests": self.new_requests},
+                "today": {
+                    "day": today,
+                    **self._stats_dict(self.by_day.get(today, UsageStats()), self.day_cost(today)),
+                },
+                "settings": {
+                    "daily_budget": self.prices.daily_budget,
+                    "language": self.prices.language,
+                    "theme": str(self.prices.settings.get("theme", "system") or "system"),
+                },
+            }
 
     def request_body(self, request_id: str, message_id: str) -> str:
         """Lazily load one request's assistant reply text (on demand only —

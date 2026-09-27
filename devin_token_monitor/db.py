@@ -56,7 +56,7 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     path = path or db_path()
     if not path.exists():
         raise FileNotFoundError(f"Devin sessions database not found: {path}")
-    uri = f"file:{path}?mode=ro"
+    uri = f"{path.resolve().as_uri()}?mode=ro"
     return sqlite3.connect(uri, uri=True)
 
 
@@ -94,16 +94,21 @@ def fetch_message_body(
     """Return the plaintext content of one assistant message, looked up by
     request/message id. Replicated message-tree nodes share the same content,
     so the first hit wins."""
-    for r in conn.execute(
-        """SELECT json_extract(chat_message, '$.content')
-           FROM message_nodes
-           WHERE json_extract(chat_message,'$.metadata.request_id')=?
-              OR json_extract(chat_message,'$.message_id')=?
-           ORDER BY row_id""",
-        (request_id, message_id),
+    for json_path, identifier in (
+        ("$.metadata.request_id", request_id),
+        ("$.message_id", message_id),
     ):
-        if isinstance(r[0], str) and r[0].strip():
-            return r[0]
+        if not identifier:
+            continue
+        for r in conn.execute(
+            """SELECT json_extract(chat_message, '$.content')
+               FROM message_nodes
+               WHERE json_extract(chat_message, ?) = ?
+               ORDER BY row_id""",
+            (json_path, identifier),
+        ):
+            if isinstance(r[0], str) and r[0].strip():
+                return r[0]
     return ""
 
 

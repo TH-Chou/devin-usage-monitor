@@ -8,8 +8,10 @@ USD per 1M tokens, split into input / output / cache_read / cache_creation.
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,11 +30,50 @@ def default_prices_path() -> Path:
         _BUNDLED_FILE,
         _PROJECT_FILE,
     ):
-        if cand and Path(cand).exists():
-            return Path(cand)
+        if cand:
+            path = Path(cand).expanduser()
+            if path.exists():
+                return path
     return _PROJECT_FILE
 
+
+def _read_prices_json(path: Path) -> dict:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict) or not isinstance(raw.get("settings", {}), dict):
+        raise ValueError(f"Price table must contain valid JSON settings: {path}")
+    return raw
+
+
+def _write_prices_json(path: Path, raw: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f".{path.name}.", delete=False,
+        ) as handle:
+            temp_path = Path(handle.name)
+            json.dump(raw, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
+def editable_prices_path() -> Path:
+    override = os.environ.get("DTM_PRICES")
+    target = Path(override).expanduser() if override else _USER_FILE
+    if not target.exists():
+        _write_prices_json(target, _read_prices_json(default_prices_path()))
+    return target
+
+
 _KEYS = ("input", "output", "cache_read", "cache_creation")
+_LANGUAGES = ("zh", "en", "ja", "ko", "es", "vi")
+_THEMES = ("system", "midnight", "graphite", "paper", "ocean", "forest")
 
 
 @dataclass
@@ -44,7 +85,10 @@ class ModelPrice:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ModelPrice":
-        return cls(**{k: float(d.get(k, 0.0)) for k in _KEYS})
+        values = {k: float(d.get(k, 0.0)) for k in _KEYS}
+        if any(not math.isfinite(value) or value < 0 for value in values.values()):
+            raise ValueError("Model prices must be finite and nonnegative")
+        return cls(**values)
 
     def cost(
         self,
@@ -75,46 +119,56 @@ class PriceTable:
     @property
     def daily_budget(self) -> float:
         try:
-            return float(self.settings.get("daily_budget", 0) or 0)
+            value = float(self.settings.get("daily_budget", 0) or 0)
+            return value if math.isfinite(value) and value >= 0 else 0.0
         except (TypeError, ValueError):
             return 0.0
 
     @property
     def language(self) -> str:
         lang = str(self.settings.get("language", "zh") or "zh")
-        return lang if lang in ("zh", "en", "ja", "ko", "es", "vi") else "zh"
+        return lang if lang in _LANGUAGES else "zh"
 
     @classmethod
     def load(cls, path: Path | None = None) -> "PriceTable":
-        path = path or default_prices_path()
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return cls(ModelPrice(), {})
-        default = ModelPrice.from_dict(raw.get("default", {}))
-        models = {
-            name: ModelPrice.from_dict(p)
-            for name, p in raw.get("models", {}).items()
-        }
-        return cls(default, models, raw.get("settings", {}))
+        primary = path or default_prices_path()
+        for candidate in dict.fromkeys((primary, _BUNDLED_FILE, _PROJECT_FILE)):
+            try:
+                raw = _read_prices_json(candidate)
+                default = ModelPrice.from_dict(raw.get("default", {}))
+                models = {
+                    name: ModelPrice.from_dict(price)
+                    for name, price in raw.get("models", {}).items()
+                }
+                return cls(default, models, raw.get("settings", {}))
+            except (OSError, ValueError, TypeError, AttributeError):
+                if candidate == primary and candidate.exists():
+                    print(f"warning: invalid price table at {candidate}; using bundled defaults", file=sys.stderr)
+        return cls(ModelPrice(), {})
 
     def update_settings(
         self, patch: dict, path: Path | None = None
     ) -> Path:
         """Merge ``patch`` into the ``settings`` block of prices.json."""
-        path = path or default_prices_path()
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(raw, dict):
-                raw = {}
-        except (OSError, json.JSONDecodeError):
-            raw = {}
+        if not isinstance(patch, dict) or set(patch) - {"daily_budget", "language", "theme"}:
+            raise ValueError("Unsupported price-table setting")
+        values = dict(patch)
+        if "daily_budget" in values:
+            budget = float(values["daily_budget"])
+            if not math.isfinite(budget) or budget < 0:
+                raise ValueError("Daily budget must be finite and nonnegative")
+            values["daily_budget"] = budget
+        if "language" in values and values["language"] not in _LANGUAGES:
+            raise ValueError("Unsupported language")
+        if "theme" in values and values["theme"] not in _THEMES:
+            raise ValueError("Unsupported theme")
+        path = Path(path).expanduser() if path else editable_prices_path()
+        raw = _read_prices_json(path if path.exists() else default_prices_path())
         settings = raw.setdefault("settings", {})
-        settings.update(patch)
-        path.write_text(
-            json.dumps(raw, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        if not isinstance(settings, dict):
+            raise ValueError(f"Invalid settings in price table: {path}")
+        settings.update(values)
+        _write_prices_json(path, raw)
         return path
 
     def price_for(self, model: str) -> ModelPrice:

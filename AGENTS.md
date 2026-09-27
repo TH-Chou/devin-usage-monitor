@@ -10,3 +10,4 @@
 - Lazy body callback signature is `showBody(request_or_message_id, text)`. Keep response bodies out of periodic usage snapshots.
 - Non-destructive isolated build: `.venv/bin/python setup_gui.py py2app --dist-dir dist/<new-name> --bdist-base build/<new-name>`. Choose unused directories. Existing build shell scripts remove/replace generated bundles and staging directories; obtain approval before using them on existing artifacts.
 - Packaging metadata version in `setup_gui.py` and `devin_token_monitor.__version__` should match. App icon is the raster-generated `assets/dtm.icns`; UI-only changes should not alter it or reset system icon caches.
+- VS Code extension verification: `cd vscode-extension && npm install && npm run test`; build a local VSIX with `npm run package`. Staging copies the shared Python core and evaluated dashboard into the VSIX; test it with an isolated editor profile when available.

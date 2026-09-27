@@ -29,7 +29,7 @@ HOST = os.environ.get("DTM_HOST", "127.0.0.1")
 PORT = int(os.environ.get("DTM_PORT", "7878"))
 
 class _Handler(BaseHTTPRequestHandler):
-    server_version = "DevinTokenMonitor/0.1"
+    server_version = f"DevinTokenMonitor/{__version__}"
 
     def _send(self, code: int, body: bytes, ctype: str):
         self.send_response(code)
@@ -53,6 +53,8 @@ class _Handler(BaseHTTPRequestHandler):
             )
         elif path == "/api/refresh":
             try:
+                agg.prices = PriceTable.load()
+                agg.meta["prices_path"] = str(default_prices_path())
                 agg.poll()
             except Exception as e:
                 self._send(
@@ -93,7 +95,19 @@ class _Handler(BaseHTTPRequestHandler):
                 "application/json",
             )
         elif path == "/api/health":
-            self._send(200, b'{"ok":true}', "application/json")
+            summary = agg.status_summary()
+            poll_error = summary["meta"].get("poll_error")
+            last_success = summary["meta"].get("poll_last_ok")
+            healthy = bool(last_success) and not poll_error
+            self._send(
+                200 if healthy else 503,
+                json.dumps({
+                    "ok": healthy,
+                    "last_success": last_success,
+                    "error": poll_error,
+                }).encode(),
+                "application/json",
+            )
         else:
             self._send(404, b"not found", "text/plain")
 
@@ -101,27 +115,30 @@ class _Handler(BaseHTTPRequestHandler):
         agg: UsageAggregator = self.server.agg  # type: ignore[attr-defined]
         url = urlparse(self.path)
         if url.path == "/api/settings":
-            n = int(self.headers.get("Content-Length", 0))
             try:
+                n = int(self.headers.get("Content-Length", 0))
+                if not 0 <= n <= 65536:
+                    raise ValueError("Invalid settings request size")
                 body = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(body, dict):
+                    raise ValueError("Settings request must be a JSON object")
                 patch = {}
                 if "daily_budget" in body:
-                    patch["daily_budget"] = float(body["daily_budget"])
+                    patch["daily_budget"] = body["daily_budget"]
                 if "language" in body:
-                    patch["language"] = str(body["language"])
-                agg.prices.update_settings(patch)
+                    patch["language"] = body["language"]
+                if "theme" in body:
+                    patch["theme"] = body["theme"]
+                path = agg.prices.update_settings(patch)
                 agg.prices = PriceTable.load()
-            except (ValueError, json.JSONDecodeError) as e:
-                self._send(
-                    400, json.dumps({"error": str(e)}).encode(),
-                    "application/json",
-                )
+                agg.meta["prices_path"] = str(path)
+            except ValueError as e:
+                self._send(400, json.dumps({"error": str(e)}).encode(), "application/json")
                 return
-            self._send(
-                200,
-                json.dumps(agg.snapshot()).encode(),
-                "application/json",
-            )
+            except OSError as e:
+                self._send(500, json.dumps({"error": str(e)}).encode(), "application/json")
+                return
+            self._send(200, json.dumps(agg.snapshot()).encode(), "application/json")
         else:
             self._send(404, b"not found", "text/plain")
 
@@ -153,12 +170,17 @@ def main() -> int:
         return 1
 
     def poll_loop():
+        last_error = None
         while True:
             time.sleep(15)
             try:
                 agg.poll()
+                last_error = None
             except Exception as e:
-                print(f"poll error: {e}")
+                message = str(e)
+                if message != last_error:
+                    print(f"poll error: {message}")
+                last_error = message
 
     threading.Thread(target=poll_loop, name="dtm-poll", daemon=True).start()
     srv, url = start_server(agg)

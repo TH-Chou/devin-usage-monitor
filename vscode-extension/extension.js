@@ -97,7 +97,9 @@ let backend;
 let panel;
 let statusItem;
 let lastSnapshot;
+let lastLoggedError;
 let pollTimer;
+let polling = false;
 let restarting = false;
 let backendConfigKey;
 
@@ -142,7 +144,8 @@ function dayKey() {
 
 function logError(context, error) {
   const message = error instanceof Error ? error.message : String(error);
-  output.appendLine(message);
+  if (lastLoggedError !== message) output.appendLine(message);
+  lastLoggedError = message;
   if (statusItem) {
     statusItem.text = '$(warning) Devin Monitor';
     statusItem.tooltip = `${message}\nRun “Devin Token Monitor: Select Sessions Database” to configure the local Devin database.`;
@@ -150,19 +153,20 @@ function logError(context, error) {
   if (context.notify) vscode.window.showErrorMessage(message);
 }
 
-function showSnapshot(snapshot) {
-  lastSnapshot = snapshot;
-  const today = snapshot.today || {};
+function updateStatus(data) {
+  const today = data.today || {};
   const cost = Number(today.cost || 0);
-  statusItem.text = `$(pulse) Devin ${formatCost(cost)}`;
-  statusItem.tooltip = `Devin Token Monitor\nToday: ${formatCost(cost)} · ${today.requests || 0} requests\nClick to open dashboard`;
+  const pollError = (data.meta || {}).poll_error;
+  if (!pollError) lastLoggedError = undefined;
+  statusItem.text = pollError ? '$(warning) Devin Monitor' : `$(pulse) Devin ${formatCost(cost)}`;
+  statusItem.tooltip = pollError
+    ? `Devin Token Monitor\n${pollError}\nSelect the sessions database to retry`
+    : `Devin Token Monitor\nToday: ${formatCost(cost)} · ${today.requests || 0} requests\nClick to open dashboard`;
   const config = vscode.workspace.getConfiguration(PREFIX);
   if (config.get('showStatusBar', true)) statusItem.show();
   else statusItem.hide();
-  if (panel) panel.webview.postMessage({ type: 'snapshot', snapshot });
-
-  const budget = Number((snapshot.settings || {}).daily_budget || 0);
-  if (budget > 0 && cost > budget) {
+  const budget = Number((data.settings || {}).daily_budget || 0);
+  if (!pollError && budget > 0 && cost > budget) {
     const key = `${PREFIX}.budgetAlertDay`;
     if (contextState && contextState.get(key) !== dayKey()) {
       contextState.update(key, dayKey());
@@ -173,13 +177,26 @@ function showSnapshot(snapshot) {
   }
 }
 
+function showSnapshot(snapshot) {
+  lastSnapshot = snapshot;
+  updateStatus(snapshot);
+  if (panel && panel.visible) panel.webview.postMessage({ type: 'snapshot', snapshot });
+}
+
+function showSummary(summary) {
+  updateStatus(summary);
+}
+
 let contextState;
 
 async function refresh(action = 'poll', notify = false) {
   if (!backend) return;
   try {
-    const result = await backend.request(action);
-    showSnapshot(result.snapshot);
+    const includeSnapshot = Boolean(panel && panel.visible);
+    const result = await backend.request(action, { include_snapshot: includeSnapshot });
+    if (result.snapshot) showSnapshot(result.snapshot);
+    else if (result.summary) showSummary(result.summary);
+    if (result.error) throw new Error(result.error);
   } catch (error) {
     logError({ notify }, error);
     if (panel) panel.webview.postMessage({ type: 'error', message: error.message });
@@ -216,7 +233,7 @@ async function handleWebviewMessage(message) {
   try {
     if (message.action === 'ready') {
       if (lastSnapshot && panel) panel.webview.postMessage({ type: 'snapshot', snapshot: lastSnapshot });
-      else await refresh('initialize');
+      await refresh('poll');
     } else if (message.action === 'refresh') {
       await refresh('refresh', true);
     } else if (message.action === 'getBody') {
@@ -254,6 +271,7 @@ function openDashboard(context) {
   if (panel) {
     panel.reveal(vscode.ViewColumn.One);
     if (lastSnapshot) panel.webview.postMessage({ type: 'snapshot', snapshot: lastSnapshot });
+    refresh('poll').catch(() => {});
     return;
   }
   panel = vscode.window.createWebviewPanel(
@@ -264,6 +282,9 @@ function openDashboard(context) {
   );
   panel.webview.html = dashboardHtml(panel.webview, context);
   panel.webview.onDidReceiveMessage(handleWebviewMessage, undefined, context.subscriptions);
+  panel.onDidChangeViewState(event => {
+    if (event.webviewPanel.visible) refresh('poll').catch(() => {});
+  }, undefined, context.subscriptions);
   panel.onDidDispose(() => { panel = undefined; }, undefined, context.subscriptions);
 }
 
@@ -292,6 +313,7 @@ async function restartBackend(context) {
   restarting = true;
   try {
     if (backend) backend.dispose();
+    lastSnapshot = undefined;
     backend = createBackend(context);
     if (!backend) return;
     await refresh('initialize');
@@ -306,7 +328,11 @@ function configurePolling() {
   if (pollTimer) clearInterval(pollTimer);
   const seconds = Math.max(5, Math.min(3600,
     Number(vscode.workspace.getConfiguration(PREFIX).get('refreshInterval', 15)) || 15));
-  pollTimer = setInterval(() => refresh('poll').catch(() => {}), seconds * 1000);
+  pollTimer = setInterval(() => {
+    if (polling) return;
+    polling = true;
+    refresh('poll').catch(() => {}).finally(() => { polling = false; });
+  }, seconds * 1000);
 }
 
 function activate(context) {

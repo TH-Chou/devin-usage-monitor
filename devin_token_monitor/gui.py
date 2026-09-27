@@ -58,7 +58,7 @@ from .aggregator import UsageAggregator
 from .dashboard import PAGE
 from .db import db_path
 from .exporter import export_all
-from .pricing import PriceTable, default_prices_path
+from .pricing import PriceTable, default_prices_path, editable_prices_path
 
 POLL_SECONDS = 15
 LOGIN_AGENT_LABEL = "com.local.devin-token-monitor"
@@ -254,11 +254,14 @@ class AppDelegate(NSObject):
             "login_item": _login_item_installed(),
         }
         self._alerted_day = None
+        self._last_poll_error = None
+        self._poll_lock = threading.Lock()
         self._lang = self.agg.prices.language
         self._theme = str(self.agg.prices.settings.get("theme", "system") or "system")
         try:
             self.agg.poll()
         except Exception as e:
+            self._last_poll_error = str(e)
             print(f"warning: {e}")
 
         # ---- main window: opaque, Apple-Settings style ----
@@ -529,7 +532,7 @@ class AppDelegate(NSObject):
             self._native_accent = AK.NSColor.controlAccentColor()
         if hasattr(self, "selection"):
             self.selection.setFillColor_(self._native_accent.colorWithAlphaComponent_(0.14))
-        if hasattr(self, "_nav_buttons"):
+        if getattr(self, "_nav_buttons", None):
             self._select_navigation(getattr(self, "_current_view", "overview"))
 
     @_guarded
@@ -537,6 +540,8 @@ class AppDelegate(NSObject):
         # status-menu "Show Window" is a native action (no Python sender
         # marshalling); compensate for the lost activation here
         NSApp.activateIgnoringOtherApps_(True)
+        if hasattr(self, "webview"):
+            self.push()
 
     @objc.python_method
     def _select_navigation(self, view):
@@ -586,6 +591,12 @@ class AppDelegate(NSObject):
             # never let a page action abort the app
             print(f"bridge action error: {e}")
 
+    @objc.python_method
+    def _save_settings(self, patch):
+        path = self.agg.prices.update_settings(patch)
+        self.agg.prices = PriceTable.load()
+        self.agg.meta["prices_path"] = str(path)
+
     def _handle_page_message(self, msg):
         body = msg.body()
         action = body.objectForKey_("action") if body else None
@@ -602,24 +613,21 @@ class AppDelegate(NSObject):
         elif action == "setBudget":
             v = body.objectForKey_("value") or 0
             try:
-                self.agg.prices.update_settings({"daily_budget": float(v)})
-                self.agg.prices = PriceTable.load()
+                self._save_settings({"daily_budget": float(v)})
             except Exception as e:
                 print(f"setBudget error: {e}")
             self.push()
         elif action == "setLanguage":
             v = str(body.objectForKey_("value") or "zh")
             try:
-                self.agg.prices.update_settings({"language": v})
-                self.agg.prices = PriceTable.load()
+                self._save_settings({"language": v})
             except Exception as e:
                 print(f"setLanguage error: {e}")
             self.push()
         elif action == "setTheme":
             v = str(body.objectForKey_("value") or "system")
             try:
-                self.agg.prices.update_settings({"theme": v})
-                self.agg.prices = PriceTable.load()
+                self._save_settings({"theme": v})
             except Exception as e:
                 print(f"setTheme error: {e}")
             self.push()
@@ -705,23 +713,37 @@ class AppDelegate(NSObject):
                 NSMakeRect(200, 120, 950, 720), True
             )
             self.window.center()
-        threading.Thread(target=self._poll_and_push, daemon=True).start()
+        if not self._poll_lock.acquire(blocking=False):
+            return
+        try:
+            threading.Thread(target=self._poll_and_push, daemon=True).start()
+        except Exception:
+            self._poll_lock.release()
+            raise
 
     def _poll_and_push(self):
         try:
-            self.agg.poll()
-        except Exception as e:
-            print(f"poll error: {e}")
-        try:
-            self.performSelectorOnMainThread_withObject_waitUntilDone_(
-                "push", None, False
-            )
-        except Exception as e:
-            print(f"dispatch push error: {e}")
+            try:
+                self.agg.poll()
+                self._last_poll_error = None
+            except Exception as e:
+                message = str(e)
+                if message != self._last_poll_error:
+                    print(f"poll error: {message}")
+                self._last_poll_error = message
+            try:
+                self.performSelectorOnMainThread_withObject_waitUntilDone_(
+                    "push", None, False
+                )
+            except Exception as e:
+                print(f"dispatch push error: {e}")
+        finally:
+            self._poll_lock.release()
 
     @_guarded
     def push(self):
-        snap = self.agg.snapshot()
+        full = self.window.isVisible() and not self.window.isMiniaturized()
+        snap = self.agg.snapshot() if full else self.agg.status_summary()
         self._maybe_alert(snap)
         lang = self.agg.prices.language
         if lang != self._lang:
@@ -747,9 +769,10 @@ class AppDelegate(NSObject):
         self._stat_today.setTitle_(
             _nlf(self._lang, "stat_today", v=title, n=today.get("requests", 0))
         )
-        self.webview.evaluateJavaScript_completionHandler_(
-            f"update({json.dumps(snap)})", None
-        )
+        if full:
+            self.webview.evaluateJavaScript_completionHandler_(
+                f"update({json.dumps(snap)})", None
+            )
 
     # ---- budget alert ----------------------------------------------------
 
@@ -793,11 +816,15 @@ class AppDelegate(NSObject):
     @_guarded
     def refresh_(self, _sender):
         self.agg.prices = PriceTable.load()
+        self.agg.meta["prices_path"] = str(default_prices_path())
         self.tick_(None)
 
     @_guarded
     def editPrices_(self, _sender):
-        subprocess.Popen(["open", "-t", str(default_prices_path())])
+        path = editable_prices_path()
+        self.agg.meta["prices_path"] = str(path)
+        subprocess.Popen(["open", "-t", str(path)])
+        self.push()
 
     @_guarded
     def toggleLoginItem_(self, sender):

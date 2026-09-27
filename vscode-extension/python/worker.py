@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 from devin_token_monitor.aggregator import UsageAggregator
 from devin_token_monitor.exporter import export_all
 from devin_token_monitor.db import db_path
-from devin_token_monitor.pricing import PriceTable, default_prices_path
+from devin_token_monitor.pricing import PriceTable, default_prices_path, editable_prices_path
 
 aggregator: UsageAggregator | None = None
 
@@ -37,13 +37,23 @@ def handle(message: dict) -> dict:
         agg = get_aggregator()
         if action == "refresh":
             agg.prices = PriceTable.load()
-        agg.poll()
-        return {"snapshot": agg.snapshot()}
+        error = None
+        try:
+            agg.poll()
+        except Exception as exc:
+            error = str(exc)
+        include_snapshot = bool(message.get("include_snapshot", True))
+        result = {"snapshot" if include_snapshot else "summary":
+                  agg.snapshot() if include_snapshot else agg.status_summary()}
+        if error:
+            result["error"] = error
+        return result
     if action == "settings":
         agg = get_aggregator()
         patch = message.get("settings") or {}
-        agg.prices.update_settings(patch)
+        path = agg.prices.update_settings(patch)
         agg.prices = PriceTable.load()
+        agg.meta["prices_path"] = str(path)
         return {"snapshot": agg.snapshot()}
     if action == "body":
         agg = get_aggregator()
@@ -54,7 +64,7 @@ def handle(message: dict) -> dict:
             )
         }
     if action == "pricesPath":
-        return {"path": str(default_prices_path())}
+        return {"path": str(editable_prices_path())}
     if action == "export":
         agg = get_aggregator()
         files = export_all(agg.snapshot())

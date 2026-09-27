@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Recover aggregates when the local sessions database is replaced or truncated.
+- Safely open SQLite paths with URI-reserved characters and avoid empty-ID response-body matches.
+- Copy the active price seed to writable user storage on first edit; validate and atomically save settings without mutating the app bundle.
+- Use lightweight status summaries while the dashboard is hidden, serialize extension polling, and surface source-health state.
+- Preserve dashboard themes in the web frontend and expose meaningful polling health.
+
 ## 0.2.8
 
 - Add six selectable, persistent themes across the dashboard and native sidebar accent.

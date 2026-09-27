@@ -18,6 +18,12 @@ test('dashboard themes and token insights are included', () => {
   assert.match(source, /month_projection/);
 });
 
+test('model drilldown and source health remain visible', () => {
+  assert.match(source, /function setModelFilter\(m\)[\s\S]*?navigateTo\('requests'\)/);
+  assert.doesNotMatch(source, /querySelectorAll\('nav a'\)\[3\]/);
+  assert.match(source, /poll_error/);
+});
+
 test('dashboard is adapted to a nonce-CSP VS Code Webview', () => {
   const html = renderDashboard(source, 'vscode-webview-resource:', 'testNonce123');
   assert.match(html, /script-src 'nonce-testNonce123'/);

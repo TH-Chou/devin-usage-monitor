@@ -39,6 +39,7 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 | **IDE 扩展** | 面向桌面版 VS Code 和兼容 IDE 的 VSIX：状态栏费用、仪表盘 Webview、数据库选择、价格表编辑与 CSV 导出。 |
 | **六套主题** | 跟随系统、午夜蓝、石墨、暖纸、深海、森林；选择会持久化。 |
 | **Token 深度分析** | 7/30 天与本月至今统计、月末消耗趋势预测、缓存节省估算、输出效率、模型对比及请求规模/延迟 P50/P90 分位。 |
+| **本地数据可靠性** | 只读 SQLite 支持含特殊字符的路径和数据库轮换检测；来源状态会提示轮询错误，设置写入用户目录而非安装包。 |
 
 ## 安装
 
@@ -57,7 +58,7 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 cd vscode-extension
 npm install
 npm run package
-code --install-extension devin-token-monitor-0.2.8.vsix
+code --install-extension devin-token-monitor-0.3.0.vsix
 ```
 
 随后在命令面板运行 **Devin Token Monitor: Open Dashboard**。要求本机 Python 3.10+。Cursor 支持 VSIX 兼容扩展；Windsurf 和其他分支版本的兼容性取决于其当前 VS Code API 与扩展安装策略。浏览器版 VS Code（`vscode.dev` / `github.dev`）不支持，因为它不能启动本机 Python worker 或访问本地 SQLite 数据库。详见 [`vscode-extension/README.md`](vscode-extension/README.md) 和[兼容性调研](vscode-extension/RESEARCH.md)。
@@ -94,9 +95,10 @@ Python worker，通过 stdio 上的 JSON Lines 通信；复用相同的聚合模
 
 ## 配置
 
-`prices.json` 按顺序解析：`$DTM_PRICES` → `~/.devin-token-monitor/prices.json`
-→ App 内嵌资源 → 仓库文件。`settings.daily_budget` 开启预算告警；
-`settings.language` 选择界面语言。
+`prices.json` 按顺序读取：`$DTM_PRICES` → `~/.devin-token-monitor/prices.json`
+→ App 内嵌资源 → 仓库文件。首次修改时会复制到可写的用户文件，绝不改写已安装
+App 包内资源。`settings.daily_budget` 开启预算告警；`settings.language` 和
+`settings.theme` 保存语言与主题偏好。
 
 | 环境变量 | 作用 | 默认 |
 |---|---|---|

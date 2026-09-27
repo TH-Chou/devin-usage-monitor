@@ -33,11 +33,11 @@ After installation, run **Devin Token Monitor: Open Dashboard** from the Command
 | `devinTokenMonitor.refreshInterval` | `15` | Poll interval in seconds (minimum 5). |
 | `devinTokenMonitor.showStatusBar` | `true` | Show or hide the status bar cost. |
 
-Use **Devin Token Monitor: Select Sessions Database** to choose a database interactively, and **Devin Token Monitor: Open Price Table** to edit the active price table.
+Use **Devin Token Monitor: Select Sessions Database** to choose a database interactively, and **Devin Token Monitor: Open Price Table** to edit the active price table. The bundled seed is copied to writable user storage on first edit; the extension installation files are never modified.
 
 ## Privacy and implementation
 
-No usage data is sent over the network. The extension starts a bundled Python standard-library worker and exchanges newline-delimited JSON over stdin/stdout. The worker opens the SQLite database read-only, polls incrementally, and exits with the extension host. Dashboard content is local and runs in a CSP-restricted VS Code Webview.
+No usage data is sent over the network. The extension starts a bundled Python standard-library worker and exchanges newline-delimited JSON over stdin/stdout. The worker opens the SQLite database read-only, polls incrementally, and exits with the extension host. Dashboard content is local and runs in a CSP-restricted VS Code Webview. While the dashboard is hidden, polling returns only a compact status summary; full chart/request snapshots are produced when the dashboard is visible.
 
 Cost is an estimate from the editable model prices; Devin credits/ACU are server-side and are not present in the local database.
 
@@ -52,7 +52,7 @@ npm run package
 This stages the current shared Python modules, `prices.json`, and evaluated dashboard HTML into the extension package, then creates a `.vsix` file. To install locally:
 
 ```bash
-code --install-extension devin-token-monitor-0.2.8.vsix
+code --install-extension devin-token-monitor-0.3.0.vsix
 ```
 
 For development, open `vscode-extension` in VS Code, run `npm install`, then run the **Extension Development Host** launch configuration after staging with `npm run stage`.
