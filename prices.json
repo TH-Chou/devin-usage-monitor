@@ -1,0 +1,898 @@
+{
+  "_note": "USD per 1M tokens. Public models use vendor standard short-context rates (checked 2026-09-26); context-length and service-tier surcharges are described in _sources. Cognition Devin usage is billed through plan quotas and does not publish per-token SWE prices, so swe-* remain clearly marked editable estimates. The local database has no separate cache-write price for most providers, so cache_creation is set to the prompt-cache write or uncached-input list price where published.",
+  "_sources": {
+    "openai": "https://developers.openai.com/api/docs/pricing",
+    "openai_enterprise": "https://help.openai.com/en/articles/20001415-chatgpt-rate-card-enterprise-token-based-pricing",
+    "anthropic": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "google": "https://ai.google.dev/gemini-api/docs/pricing",
+    "deepseek": "https://api-docs.deepseek.com/quick_start/pricing",
+    "xai": "https://docs.x.ai/developers/pricing",
+    "mistral": "https://docs.mistral.ai/inference/pricing",
+    "minimax": "https://platform.minimax.io/docs/guides/pricing-paygo",
+    "kimi": "https://platform.kimi.ai",
+    "qwen": "https://www.alibabacloud.com/help/en/model-studio",
+    "ernie": "https://intl.cloud.baidu.com/en/doc/qianfan/s/Jm8r1826a-intl-en",
+    "doubao": "https://www.volcengine.com/docs/82379/1549323",
+    "zhipu": "https://docs.z.ai/guides/llm/pricing"
+  },
+  "default": {
+    "input": 2.0,
+    "output": 10.0,
+    "cache_read": 0.2,
+    "cache_creation": 2.5
+  },
+  "settings": {
+    "daily_budget": 0.0,
+    "language": "en"
+  },
+  "models": {
+    "swe-2-max": {
+      "_note": "Cognition estimate; Devin quota billing has no published per-token price",
+      "input": 0.75,
+      "output": 4.0,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "swe-2-high": {
+      "_note": "Cognition estimate; Devin quota billing has no published per-token price",
+      "input": 0.65,
+      "output": 3.25,
+      "cache_read": 0.065,
+      "cache_creation": 0.65
+    },
+    "swe-2-medium": {
+      "_note": "Cognition estimate; public Cognition Fusion note lists SWE-2 medium at $0.75/M input",
+      "input": 0.75,
+      "output": 3.75,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "swe-2": {
+      "_note": "Cognition estimate; Devin quota billing has no published per-token price",
+      "input": 0.75,
+      "output": 3.75,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "swe-1.7-lightning": {
+      "_note": "Cognition estimate",
+      "input": 0.5,
+      "output": 2.5,
+      "cache_read": 0.05,
+      "cache_creation": 0.5
+    },
+    "swe-1.7": {
+      "_note": "Cognition estimate",
+      "input": 0.6,
+      "output": 3.0,
+      "cache_read": 0.06,
+      "cache_creation": 0.6
+    },
+    "swe-1-6-fast": {
+      "_note": "Cognition estimate",
+      "input": 0.5,
+      "output": 2.5,
+      "cache_read": 0.05,
+      "cache_creation": 0.5
+    },
+    "swe-1-6": {
+      "_note": "Cognition estimate",
+      "input": 0.75,
+      "output": 3.75,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "swe-1.5": {
+      "_note": "Cognition estimate",
+      "input": 0.5,
+      "output": 2.5,
+      "cache_read": 0.05,
+      "cache_creation": 0.5
+    },
+    "swe": {
+      "_note": "Cognition estimate family fallback",
+      "input": 0.75,
+      "output": 3.75,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "gpt-6-astra": {
+      "input": 10.0,
+      "output": 50.0,
+      "cache_read": 1.0,
+      "cache_creation": 12.5
+    },
+    "gpt-6-sol": {
+      "input": 2.0,
+      "output": 10.0,
+      "cache_read": 0.2,
+      "cache_creation": 2.5
+    },
+    "gpt-6-luna": {
+      "input": 0.1,
+      "output": 0.5,
+      "cache_read": 0.01,
+      "cache_creation": 0.125
+    },
+    "gpt-5.6-sol": {
+      "input": 4.0,
+      "output": 20.0,
+      "cache_read": 0.4,
+      "cache_creation": 5.0
+    },
+    "gpt-5.6-terra": {
+      "input": 2.0,
+      "output": 12.0,
+      "cache_read": 0.2,
+      "cache_creation": 2.5
+    },
+    "gpt-5.6-luna": {
+      "input": 0.2,
+      "output": 1.2,
+      "cache_read": 0.02,
+      "cache_creation": 0.25
+    },
+    "daybreak-red": {
+      "input": 12.5,
+      "output": 75.0,
+      "cache_read": 1.25,
+      "cache_creation": 15.625
+    },
+    "daybreak-blue": {
+      "input": 4.0,
+      "output": 20.0,
+      "cache_read": 0.4,
+      "cache_creation": 5.0
+    },
+    "gpt-5.5-pro": {
+      "input": 30.0,
+      "output": 180.0,
+      "cache_read": 0.0,
+      "cache_creation": 0.0
+    },
+    "gpt-5.5": {
+      "input": 5.0,
+      "output": 30.0,
+      "cache_read": 0.5,
+      "cache_creation": 6.25
+    },
+    "gpt-5.4-pro": {
+      "input": 30.0,
+      "output": 180.0,
+      "cache_read": 0.0,
+      "cache_creation": 0.0
+    },
+    "gpt-5.4-mini": {
+      "input": 0.75,
+      "output": 4.5,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "gpt-5.4-nano": {
+      "input": 0.2,
+      "output": 1.25,
+      "cache_read": 0.02,
+      "cache_creation": 0.2
+    },
+    "gpt-5.4": {
+      "input": 2.5,
+      "output": 15.0,
+      "cache_read": 0.25,
+      "cache_creation": 2.5
+    },
+    "gpt-5.3-codex": {
+      "input": 1.75,
+      "output": 14.0,
+      "cache_read": 0.175,
+      "cache_creation": 1.75
+    },
+    "gpt-5.2-pro": {
+      "input": 21.0,
+      "output": 168.0,
+      "cache_read": 0.0,
+      "cache_creation": 0.0
+    },
+    "gpt-5.2": {
+      "input": 1.75,
+      "output": 14.0,
+      "cache_read": 0.175,
+      "cache_creation": 1.75
+    },
+    "gpt-5.1": {
+      "input": 1.25,
+      "output": 10.0,
+      "cache_read": 0.125,
+      "cache_creation": 1.25
+    },
+    "gpt-5-pro": {
+      "input": 15.0,
+      "output": 120.0,
+      "cache_read": 0.0,
+      "cache_creation": 0.0
+    },
+    "gpt-5-mini": {
+      "input": 0.25,
+      "output": 2.0,
+      "cache_read": 0.025,
+      "cache_creation": 0.25
+    },
+    "gpt-5-nano": {
+      "input": 0.05,
+      "output": 0.4,
+      "cache_read": 0.005,
+      "cache_creation": 0.05
+    },
+    "gpt-5-codex": {
+      "input": 1.25,
+      "output": 10.0,
+      "cache_read": 0.125,
+      "cache_creation": 1.25
+    },
+    "gpt-5": {
+      "input": 1.25,
+      "output": 10.0,
+      "cache_read": 0.125,
+      "cache_creation": 1.25
+    },
+    "codex": {
+      "input": 1.75,
+      "output": 14.0,
+      "cache_read": 0.175,
+      "cache_creation": 1.75
+    },
+    "chat-latest": {
+      "input": 5.0,
+      "output": 30.0,
+      "cache_read": 0.5,
+      "cache_creation": 5.0
+    },
+    "gpt-rosalind-research": {
+      "input": 5.0,
+      "output": 25.0,
+      "cache_read": 0.5,
+      "cache_creation": 5.0
+    },
+    "gpt-4.1-mini": {
+      "input": 0.4,
+      "output": 1.6,
+      "cache_read": 0.1,
+      "cache_creation": 0.4
+    },
+    "gpt-4.1-nano": {
+      "input": 0.1,
+      "output": 0.4,
+      "cache_read": 0.025,
+      "cache_creation": 0.1
+    },
+    "gpt-4.1": {
+      "input": 2.0,
+      "output": 8.0,
+      "cache_read": 0.5,
+      "cache_creation": 2.0
+    },
+    "gpt-4o-mini": {
+      "input": 0.15,
+      "output": 0.6,
+      "cache_read": 0.075,
+      "cache_creation": 0.15
+    },
+    "gpt-4o": {
+      "input": 2.5,
+      "output": 10.0,
+      "cache_read": 1.25,
+      "cache_creation": 2.5
+    },
+    "o1-pro": {
+      "input": 150.0,
+      "output": 600.0,
+      "cache_read": 0.0,
+      "cache_creation": 0.0
+    },
+    "o1": {
+      "input": 15.0,
+      "output": 60.0,
+      "cache_read": 7.5,
+      "cache_creation": 15.0
+    },
+    "o3-pro": {
+      "input": 20.0,
+      "output": 80.0,
+      "cache_read": 0.0,
+      "cache_creation": 0.0
+    },
+    "o4-mini": {
+      "input": 1.1,
+      "output": 4.4,
+      "cache_read": 0.275,
+      "cache_creation": 1.1
+    },
+    "o3-mini": {
+      "input": 1.1,
+      "output": 4.4,
+      "cache_read": 0.55,
+      "cache_creation": 1.1
+    },
+    "o3": {
+      "input": 2.0,
+      "output": 8.0,
+      "cache_read": 0.5,
+      "cache_creation": 2.0
+    },
+    "gpt-6": {
+      "input": 2.0,
+      "output": 10.0,
+      "cache_read": 0.2,
+      "cache_creation": 2.5
+    },
+    "compactor": {
+      "_note": "Cognition estimate; background summarization mode",
+      "input": 0.5,
+      "output": 1.5,
+      "cache_read": 0.05,
+      "cache_creation": 0.5
+    },
+    "summarizer": {
+      "_note": "Cognition estimate; background summarization mode",
+      "input": 0.5,
+      "output": 1.5,
+      "cache_read": 0.05,
+      "cache_creation": 0.5
+    },
+    "claude-fable-5.1": {
+      "input": 10.0,
+      "output": 50.0,
+      "cache_read": 0.25,
+      "cache_creation": 12.5
+    },
+    "claude-mythos-5.1": {
+      "input": 10.0,
+      "output": 50.0,
+      "cache_read": 0.25,
+      "cache_creation": 12.5
+    },
+    "claude-fable-5": {
+      "input": 10.0,
+      "output": 50.0,
+      "cache_read": 1.0,
+      "cache_creation": 12.5
+    },
+    "claude-mythos-5": {
+      "input": 10.0,
+      "output": 50.0,
+      "cache_read": 1.0,
+      "cache_creation": 12.5
+    },
+    "claude-opus-5.5": {
+      "input": 4.0,
+      "output": 20.0,
+      "cache_read": 0.2,
+      "cache_creation": 5.0
+    },
+    "claude-opus-5": {
+      "input": 5.0,
+      "output": 25.0,
+      "cache_read": 0.5,
+      "cache_creation": 6.25
+    },
+    "claude-opus-4.1": {
+      "input": 15.0,
+      "output": 75.0,
+      "cache_read": 1.5,
+      "cache_creation": 18.75
+    },
+    "claude-opus-4": {
+      "input": 5.0,
+      "output": 25.0,
+      "cache_read": 0.5,
+      "cache_creation": 6.25
+    },
+    "claude-sonnet-5": {
+      "input": 2.0,
+      "output": 10.0,
+      "cache_read": 0.2,
+      "cache_creation": 2.5
+    },
+    "claude-sonnet-4.6": {
+      "input": 3.0,
+      "output": 15.0,
+      "cache_read": 0.3,
+      "cache_creation": 3.75
+    },
+    "claude-sonnet-4.5": {
+      "input": 3.0,
+      "output": 15.0,
+      "cache_read": 0.3,
+      "cache_creation": 3.75
+    },
+    "claude-sonnet-4": {
+      "input": 3.0,
+      "output": 15.0,
+      "cache_read": 0.3,
+      "cache_creation": 3.75
+    },
+    "claude-haiku-4.5": {
+      "input": 1.0,
+      "output": 5.0,
+      "cache_read": 0.1,
+      "cache_creation": 1.25
+    },
+    "claude-haiku-3.5": {
+      "input": 0.8,
+      "output": 4.0,
+      "cache_read": 0.08,
+      "cache_creation": 1.0
+    },
+    "claude-opus": {
+      "input": 5.0,
+      "output": 25.0,
+      "cache_read": 0.5,
+      "cache_creation": 6.25
+    },
+    "claude-sonnet": {
+      "input": 3.0,
+      "output": 15.0,
+      "cache_read": 0.3,
+      "cache_creation": 3.75
+    },
+    "claude-haiku": {
+      "input": 1.0,
+      "output": 5.0,
+      "cache_read": 0.1,
+      "cache_creation": 1.25
+    },
+    "claude": {
+      "input": 3.0,
+      "output": 15.0,
+      "cache_read": 0.3,
+      "cache_creation": 3.75
+    },
+    "gemini-3.8-flash": {
+      "input": 0.75,
+      "output": 3.75,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "gemini-3.7-flash": {
+      "input": 0.75,
+      "output": 3.75,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "gemini-3.6-flash": {
+      "input": 0.75,
+      "output": 3.75,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "gemini-3.1-pro": {
+      "input": 2.0,
+      "output": 12.0,
+      "cache_read": 0.2,
+      "cache_creation": 2.0
+    },
+    "gemini-3.1-flash-lite": {
+      "input": 0.25,
+      "output": 1.5,
+      "cache_read": 0.025,
+      "cache_creation": 0.25
+    },
+    "gemini-3.1-flash": {
+      "input": 0.75,
+      "output": 3.75,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "gemini-3-flash": {
+      "input": 0.5,
+      "output": 3.0,
+      "cache_read": 0.05,
+      "cache_creation": 0.5
+    },
+    "gemini-3-pro": {
+      "input": 2.0,
+      "output": 12.0,
+      "cache_read": 0.2,
+      "cache_creation": 2.0
+    },
+    "gemini-2.5-pro": {
+      "input": 1.25,
+      "output": 10.0,
+      "cache_read": 0.31,
+      "cache_creation": 1.25
+    },
+    "gemini-2.5-flash-lite": {
+      "input": 0.1,
+      "output": 0.4,
+      "cache_read": 0.01,
+      "cache_creation": 0.1
+    },
+    "gemini-2.5-flash": {
+      "input": 0.3,
+      "output": 2.5,
+      "cache_read": 0.075,
+      "cache_creation": 0.3
+    },
+    "gemini": {
+      "input": 0.75,
+      "output": 3.75,
+      "cache_read": 0.075,
+      "cache_creation": 0.75
+    },
+    "deepseek-v4-pro": {
+      "_note": "Peak list price; off-peak is $0.66/$1.98 per 1M",
+      "input": 1.32,
+      "output": 3.96,
+      "cache_read": 0.044,
+      "cache_creation": 1.32
+    },
+    "deepseek-v4-flash-vision-exp": {
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.006,
+      "cache_creation": 0.3
+    },
+    "deepseek-v4-flash": {
+      "_note": "Peak list price; off-peak is $0.15/$0.60 per 1M",
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.006,
+      "cache_creation": 0.3
+    },
+    "deepseek-flash": {
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.006,
+      "cache_creation": 0.3
+    },
+    "deepseek-reasoner": {
+      "_note": "Deprecated alias mapping to DeepSeek V4 Flash thinking mode",
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.006,
+      "cache_creation": 0.3
+    },
+    "deepseek-chat": {
+      "_note": "Deprecated alias mapping to DeepSeek V4 Flash non-thinking mode",
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.006,
+      "cache_creation": 0.3
+    },
+    "deepseek": {
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.006,
+      "cache_creation": 0.3
+    },
+    "kimi-k3": {
+      "input": 3.0,
+      "output": 15.0,
+      "cache_read": 0.3,
+      "cache_creation": 3.0
+    },
+    "kimi-k2.7-code": {
+      "input": 0.95,
+      "output": 4.0,
+      "cache_read": 0.19,
+      "cache_creation": 0.95
+    },
+    "kimi-k2.6": {
+      "input": 0.95,
+      "output": 4.0,
+      "cache_read": 0.16,
+      "cache_creation": 0.95
+    },
+    "kimi-k2.5": {
+      "input": 0.6,
+      "output": 3.0,
+      "cache_read": 0.1,
+      "cache_creation": 0.6
+    },
+    "kimi-k2-thinking-turbo": {
+      "input": 1.15,
+      "output": 8.0,
+      "cache_read": 0.15,
+      "cache_creation": 1.15
+    },
+    "kimi-k2-thinking": {
+      "input": 0.6,
+      "output": 2.5,
+      "cache_read": 0.15,
+      "cache_creation": 0.6
+    },
+    "kimi-k2": {
+      "input": 0.6,
+      "output": 2.5,
+      "cache_read": 0.15,
+      "cache_creation": 0.6
+    },
+    "kimi": {
+      "input": 3.0,
+      "output": 15.0,
+      "cache_read": 0.3,
+      "cache_creation": 3.0
+    },
+    "glm-5.1": {
+      "input": 1.4,
+      "output": 4.4,
+      "cache_read": 0.26,
+      "cache_creation": 1.4
+    },
+    "glm-5-turbo": {
+      "input": 1.2,
+      "output": 4.0,
+      "cache_read": 0.24,
+      "cache_creation": 1.2
+    },
+    "glm-5": {
+      "input": 1.0,
+      "output": 3.2,
+      "cache_read": 0.2,
+      "cache_creation": 1.0
+    },
+    "glm-4.7-flashx": {
+      "input": 0.07,
+      "output": 0.4,
+      "cache_read": 0.01,
+      "cache_creation": 0.07
+    },
+    "glm-4.7-flash": {
+      "input": 0.0,
+      "output": 0.0,
+      "cache_read": 0.0,
+      "cache_creation": 0.0
+    },
+    "glm-4.7": {
+      "input": 0.6,
+      "output": 2.2,
+      "cache_read": 0.11,
+      "cache_creation": 0.6
+    },
+    "glm-4.6": {
+      "input": 0.6,
+      "output": 2.2,
+      "cache_read": 0.11,
+      "cache_creation": 0.6
+    },
+    "glm-4.5-x": {
+      "input": 2.2,
+      "output": 8.9,
+      "cache_read": 0.45,
+      "cache_creation": 2.2
+    },
+    "glm-4.5-airx": {
+      "input": 1.1,
+      "output": 4.5,
+      "cache_read": 0.22,
+      "cache_creation": 1.1
+    },
+    "glm-4.5-air": {
+      "input": 0.2,
+      "output": 1.1,
+      "cache_read": 0.03,
+      "cache_creation": 0.2
+    },
+    "glm-4.5-flash": {
+      "input": 0.0,
+      "output": 0.0,
+      "cache_read": 0.0,
+      "cache_creation": 0.0
+    },
+    "glm-4.5": {
+      "input": 0.6,
+      "output": 2.2,
+      "cache_read": 0.11,
+      "cache_creation": 0.6
+    },
+    "glm": {
+      "input": 0.6,
+      "output": 2.2,
+      "cache_read": 0.11,
+      "cache_creation": 0.6
+    },
+    "qwen3.8-max": {
+      "input": 1.65,
+      "output": 4.951,
+      "cache_read": 0.137,
+      "cache_creation": 2.063
+    },
+    "qwen3.7-plus": {
+      "input": 0.276,
+      "output": 1.101,
+      "cache_read": 0.028,
+      "cache_creation": 0.344
+    },
+    "qwen3.6-plus": {
+      "input": 0.276,
+      "output": 1.651,
+      "cache_read": 0.028,
+      "cache_creation": 0.344
+    },
+    "qwen3.6-flash": {
+      "input": 0.165,
+      "output": 0.99,
+      "cache_read": 0.017,
+      "cache_creation": 0.206
+    },
+    "qwen3-max": {
+      "input": 0.359,
+      "output": 1.434,
+      "cache_read": 0.036,
+      "cache_creation": 0.448
+    },
+    "qwen": {
+      "input": 0.276,
+      "output": 1.651,
+      "cache_read": 0.028,
+      "cache_creation": 0.344
+    },
+    "grok-4.7": {
+      "input": 2.0,
+      "output": 6.0,
+      "cache_read": 0.5,
+      "cache_creation": 2.0
+    },
+    "grok-4.6": {
+      "input": 2.0,
+      "output": 6.0,
+      "cache_read": 0.5,
+      "cache_creation": 2.0
+    },
+    "grok-4.5": {
+      "input": 2.0,
+      "output": 6.0,
+      "cache_read": 0.3,
+      "cache_creation": 2.0
+    },
+    "grok-build-0.1": {
+      "input": 1.0,
+      "output": 2.0,
+      "cache_read": 0.2,
+      "cache_creation": 1.0
+    },
+    "grok-4.3": {
+      "input": 1.25,
+      "output": 2.5,
+      "cache_read": 0.2,
+      "cache_creation": 1.25
+    },
+    "grok-4.20": {
+      "input": 1.25,
+      "output": 2.5,
+      "cache_read": 0.2,
+      "cache_creation": 1.25
+    },
+    "grok-4.1": {
+      "input": 0.2,
+      "output": 0.5,
+      "cache_read": 0.05,
+      "cache_creation": 0.2
+    },
+    "grok-4": {
+      "input": 2.0,
+      "output": 6.0,
+      "cache_read": 0.5,
+      "cache_creation": 2.0
+    },
+    "grok": {
+      "input": 2.0,
+      "output": 6.0,
+      "cache_read": 0.5,
+      "cache_creation": 2.0
+    },
+    "minimax-m3": {
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.06,
+      "cache_creation": 0.3
+    },
+    "minimax-m2.7-highspeed": {
+      "input": 0.6,
+      "output": 2.4,
+      "cache_read": 0.06,
+      "cache_creation": 0.375
+    },
+    "minimax-m2.7": {
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.06,
+      "cache_creation": 0.375
+    },
+    "minimax-m2": {
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.03,
+      "cache_creation": 0.375
+    },
+    "minimax": {
+      "input": 0.3,
+      "output": 1.2,
+      "cache_read": 0.06,
+      "cache_creation": 0.375
+    },
+    "mistral-medium": {
+      "input": 1.5,
+      "output": 7.5,
+      "cache_read": 0.15,
+      "cache_creation": 1.5
+    },
+    "mistral-large": {
+      "input": 0.5,
+      "output": 1.5,
+      "cache_read": 0.05,
+      "cache_creation": 0.5
+    },
+    "mistral-small": {
+      "input": 0.15,
+      "output": 0.6,
+      "cache_read": 0.015,
+      "cache_creation": 0.15
+    },
+    "ministral-14b": {
+      "input": 0.2,
+      "output": 0.2,
+      "cache_read": 0.02,
+      "cache_creation": 0.2
+    },
+    "ministral-8b": {
+      "input": 0.15,
+      "output": 0.15,
+      "cache_read": 0.015,
+      "cache_creation": 0.15
+    },
+    "ministral-3b": {
+      "input": 0.1,
+      "output": 0.1,
+      "cache_read": 0.01,
+      "cache_creation": 0.1
+    },
+    "codestral": {
+      "input": 0.3,
+      "output": 0.9,
+      "cache_read": 0.03,
+      "cache_creation": 0.3
+    },
+    "ernie-5.0": {
+      "input": 0.84,
+      "output": 3.38,
+      "cache_read": 0.084,
+      "cache_creation": 0.84
+    },
+    "ernie": {
+      "input": 1.4,
+      "output": 5.6,
+      "cache_read": 0.14,
+      "cache_creation": 1.4
+    },
+    "doubao-seed-2.0-pro": {
+      "input": 0.476,
+      "output": 2.38,
+      "cache_read": 0.0952,
+      "cache_creation": 0.476
+    },
+    "doubao-seed-2.0-code": {
+      "input": 0.476,
+      "output": 2.38,
+      "cache_read": 0.0952,
+      "cache_creation": 0.476
+    },
+    "doubao-seed-2.0-lite": {
+      "input": 0.085,
+      "output": 0.507,
+      "cache_read": 0.017,
+      "cache_creation": 0.085
+    },
+    "doubao-seed-2.0-mini": {
+      "input": 0.1,
+      "output": 0.4,
+      "cache_read": 0.02,
+      "cache_creation": 0.1
+    },
+    "doubao": {
+      "input": 0.476,
+      "output": 2.38,
+      "cache_read": 0.0952,
+      "cache_creation": 0.476
+    }
+  }
+}

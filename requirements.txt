@@ -1,0 +1,3 @@
+rumps==0.4.0
+pyobjc-framework-WebKit==12.2.2
+py2app==0.28.10
