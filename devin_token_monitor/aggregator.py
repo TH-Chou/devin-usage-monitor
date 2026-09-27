@@ -8,10 +8,11 @@ second, so correctness never depends on persisted state.
 
 from __future__ import annotations
 
+import calendar
 import threading
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Iterable
 
 from .db import (
@@ -268,10 +269,133 @@ class UsageAggregator:
         except Exception:
             return ""
 
+    @staticmethod
+    def _percentile(values: list[float], percentile: float) -> float | None:
+        if not values:
+            return None
+        ordered = sorted(values)
+        index = (len(ordered) - 1) * percentile
+        lower = int(index)
+        upper = min(lower + 1, len(ordered) - 1)
+        value = ordered[lower] + (ordered[upper] - ordered[lower]) * (index - lower)
+        return round(value, 2)
+
+    def _period_stats(self, start: date, end: date) -> dict:
+        days = [
+            day for day in self.by_day
+            if start <= date.fromisoformat(day) <= end
+        ]
+        stats = [self.by_day[day] for day in days]
+        requests = sum(item.requests for item in stats)
+        inputs = sum(item.input_tokens for item in stats)
+        outputs = sum(item.output_tokens for item in stats)
+        cache_read = sum(item.cache_read_tokens for item in stats)
+        cache_creation = sum(item.cache_creation_tokens for item in stats)
+        tokens = inputs + outputs + cache_read + cache_creation
+        cost = sum(self.day_cost(day) for day in days)
+        active_days = len(days)
+        return {
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "calendar_days": (end - start).days + 1,
+            "active_days": active_days,
+            "requests": requests,
+            "input": inputs,
+            "output": outputs,
+            "cache_read": cache_read,
+            "cache_creation": cache_creation,
+            "total": tokens,
+            "cost": round(cost, 6),
+            "avg_tokens_per_active_day": round(tokens / active_days) if active_days else 0,
+            "avg_cost_per_active_day": round(cost / active_days, 6) if active_days else 0,
+        }
+
+    def _analytics(self, today: date) -> dict:
+        last_7 = self._period_stats(today - timedelta(days=6), today)
+        previous_7 = self._period_stats(today - timedelta(days=13), today - timedelta(days=7))
+        last_30 = self._period_stats(today - timedelta(days=29), today)
+        previous_30 = self._period_stats(today - timedelta(days=59), today - timedelta(days=30))
+        month_to_date = self._period_stats(today.replace(day=1), today)
+        month_days = calendar.monthrange(today.year, today.month)[1]
+        projection_factor = month_days / today.day
+        previous_cost = previous_7["cost"]
+        previous_30_cost = previous_30["cost"]
+        change = (
+            round((last_7["cost"] - previous_cost) / previous_cost * 100, 1)
+            if previous_cost else None
+        )
+        change_30 = (
+            round((last_30["cost"] - previous_30_cost) / previous_30_cost * 100, 1)
+            if previous_30_cost else None
+        )
+        model_efficiency = []
+        cache_savings = 0.0
+        for model, stats, cost in self.model_rows():
+            price = self.prices.price_for(model)
+            saved = max(price.input - price.cache_read, 0) * stats.cache_read_tokens / 1_000_000
+            cache_savings += saved
+            model_efficiency.append({
+                "model": model,
+                "requests": stats.requests,
+                "total": stats.total_tokens,
+                "tokens_per_request": round(stats.total_tokens / stats.requests) if stats.requests else 0,
+                "output_input_ratio": round(stats.output_tokens / stats.input_tokens, 3) if stats.input_tokens else None,
+                "cache_savings": round(saved, 6),
+                "cost_per_1k_output": round(cost * 1000 / stats.output_tokens, 6) if stats.output_tokens else None,
+                "cost": round(cost, 6),
+            })
+        recent = list(self.recent)
+        token_samples = [
+            r["input"] + r["output"] + r["cache_read"] + r["cache_creation"]
+            for r in recent
+        ]
+        performance = {
+            "sample_size": len(recent),
+            "request_tokens": {
+                "p50": self._percentile(token_samples, 0.50),
+                "p90": self._percentile(token_samples, 0.90),
+            },
+        }
+        for key in ("input", "output", "ttft_ms", "total_ms", "tok_per_s"):
+            values = [float(r[key]) for r in recent if r.get(key) is not None]
+            performance[key] = {
+                "p50": self._percentile(values, 0.50),
+                "p90": self._percentile(values, 0.90),
+            }
+        total = self.total
+        total_cost = self.total_cost()
+        return {
+            "periods": {
+                "last_7_days": last_7,
+                "previous_7_days": previous_7,
+                "last_30_days": last_30,
+                "previous_30_days": previous_30,
+                "month_to_date": month_to_date,
+                "comparison_7d_pct": change,
+                "comparison_30d_pct": change_30,
+                "month_projection": {
+                    "cost": round(month_to_date["cost"] * projection_factor, 2),
+                    "tokens": round(month_to_date["total"] * projection_factor),
+                    "calendar_days": month_days,
+                    "elapsed_days": today.day,
+                },
+            },
+            "economics": {
+                "cache_savings_estimate": round(cache_savings, 6),
+                "cache_read_tokens": total.cache_read_tokens,
+                "output_input_ratio": round(total.output_tokens / total.input_tokens, 3) if total.input_tokens else None,
+                "tokens_per_request": round(total.total_tokens / total.requests) if total.requests else 0,
+                "cost_per_1k_output": round(total_cost * 1000 / total.output_tokens, 6) if total.output_tokens else None,
+            },
+            "performance": performance,
+            "models": model_efficiency,
+        }
+
     def snapshot(self) -> dict:
         """JSON-serializable view of all aggregates (thread-safe)."""
         with self.lock:
-            today_key = datetime.now().astimezone().date().isoformat()
+            today_date = datetime.now().astimezone().date()
+            today_key = today_date.isoformat()
             models = []
             for m, s, c in self.model_rows():
                 p = self.prices.price_for(m)
@@ -369,10 +493,12 @@ class UsageAggregator:
                 "sessions": sessions,
                 "top_sessions": top_sessions,
                 "heatmap": heatmap,
+                "analytics": self._analytics(today_date),
                 "requests": self._recent_priced(),
                 "settings": {
                     "daily_budget": self.prices.daily_budget,
                     "language": self.prices.language,
+                    "theme": str(self.prices.settings.get("theme", "system") or "system"),
                 },
             }
 

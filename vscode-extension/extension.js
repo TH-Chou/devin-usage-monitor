@@ -231,6 +231,9 @@ async function handleWebviewMessage(message) {
     } else if (message.action === 'setLanguage') {
       const result = await backend.request('settings', { settings: { language: String(message.value || 'en') } });
       showSnapshot(result.snapshot);
+    } else if (message.action === 'setTheme') {
+      const result = await backend.request('settings', { settings: { theme: String(message.value || 'system') } });
+      showSnapshot(result.snapshot);
     } else if (message.action === 'export') {
       await exportCsv();
     } else if (message.action === 'editPrices') {

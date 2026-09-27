@@ -37,6 +37,8 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 | **六种语言** | 中文 · English · 日本語 · 한국어 · Español · Tiếng Việt —— 持久化保存，页面与原生界面同时生效。 |
 | **自动刷新** | `row_id` 水位线增量轮询（约 15s）；启动时全量聚合约 0.3s。 |
 | **IDE 扩展** | 面向桌面版 VS Code 和兼容 IDE 的 VSIX：状态栏费用、仪表盘 Webview、数据库选择、价格表编辑与 CSV 导出。 |
+| **六套主题** | 跟随系统、午夜蓝、石墨、暖纸、深海、森林；选择会持久化。 |
+| **Token 深度分析** | 7/30 天与本月至今统计、月末消耗趋势预测、缓存节省估算、输出效率、模型对比及请求规模/延迟 P50/P90 分位。 |
 
 ## 安装
 
@@ -55,7 +57,7 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 cd vscode-extension
 npm install
 npm run package
-code --install-extension devin-token-monitor-0.2.7.vsix
+code --install-extension devin-token-monitor-0.2.8.vsix
 ```
 
 随后在命令面板运行 **Devin Token Monitor: Open Dashboard**。要求本机 Python 3.10+。Cursor 支持 VSIX 兼容扩展；Windsurf 和其他分支版本的兼容性取决于其当前 VS Code API 与扩展安装策略。浏览器版 VS Code（`vscode.dev` / `github.dev`）不支持，因为它不能启动本机 Python worker 或访问本地 SQLite 数据库。详见 [`vscode-extension/README.md`](vscode-extension/README.md) 和[兼容性调研](vscode-extension/RESEARCH.md)。

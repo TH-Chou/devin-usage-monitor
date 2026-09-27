@@ -21,7 +21,7 @@ The extension runs as a **UI extension** so the Python worker accesses the local
 
 Install from the Extensions view when available, or use **Extensions: Install from VSIX…** with the `.vsix` file attached to a GitHub release. Cursor uses Open VSX for marketplace discovery; installing a VSIX manually is the fallback if the extension is not listed. Compatibility with Windsurf and other forks depends on their current extension-install policy and VS Code API version.
 
-After installation, run **Devin Token Monitor: Open Dashboard** from the Command Palette. The status bar also shows today's estimated cost.
+After installation, run **Devin Token Monitor: Open Dashboard** from the Command Palette. The status bar also shows today's estimated cost. The dashboard adds six persistent color themes and an Insights page for rolling-period usage, month-end run-rate projections, estimated cache savings, model efficiency, and request-size/latency percentiles.
 
 ## Configuration
 
@@ -52,7 +52,7 @@ npm run package
 This stages the current shared Python modules, `prices.json`, and evaluated dashboard HTML into the extension package, then creates a `.vsix` file. To install locally:
 
 ```bash
-code --install-extension devin-token-monitor-0.2.7.vsix
+code --install-extension devin-token-monitor-0.2.8.vsix
 ```
 
 For development, open `vscode-extension` in VS Code, run `npm install`, then run the **Extension Development Host** launch configuration after staging with `npm run stage`.

@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -51,13 +52,14 @@ class WorkerProtocolTests(unittest.TestCase):
                 "INSERT INTO sessions VALUES (?, ?, ?, ?)",
                 ("session-1", "Worker Test", temp, "test-model"),
             )
+            now = datetime.now(timezone.utc)
             message = {
                 "message_id": "message-1",
                 "content": "lazy response body",
                 "metadata": {
                     "generation_model": "test-model",
                     "request_id": "request-1",
-                    "created_at": "2026-09-27T12:00:00Z",
+                    "created_at": now.isoformat().replace("+00:00", "Z"),
                     "metrics": {
                         "input_tokens": 1000000,
                         "output_tokens": 500000,
@@ -71,7 +73,7 @@ class WorkerProtocolTests(unittest.TestCase):
             }
             connection.execute(
                 "INSERT INTO message_nodes VALUES (?, ?, ?, ?)",
-                (1, "session-1", json.dumps(message), 1790510400),
+                (1, "session-1", json.dumps(message), int(now.timestamp())),
             )
             connection.commit()
             connection.close()
@@ -83,6 +85,7 @@ class WorkerProtocolTests(unittest.TestCase):
                 {"id": 1, "action": "initialize"},
                 {"id": 2, "action": "body", "request_id": "request-1", "message_id": "message-1"},
                 {"id": 3, "action": "export"},
+                {"id": 4, "action": "settings", "settings": {"theme": "ocean"}},
             ]
             process = subprocess.run(
                 [sys.executable, str(WORKER)],
@@ -93,12 +96,20 @@ class WorkerProtocolTests(unittest.TestCase):
                 check=True,
             )
             responses = [json.loads(line) for line in process.stdout.splitlines()]
-            self.assertEqual([item["id"] for item in responses], [1, 2, 3])
+            self.assertEqual([item["id"] for item in responses], [1, 2, 3, 4])
             self.assertTrue(all(item["ok"] for item in responses), process.stderr)
             snapshot = responses[0]["result"]["snapshot"]
             self.assertEqual(snapshot["total"]["requests"], 1)
             self.assertEqual(snapshot["total"]["input"], 1000000)
             self.assertEqual(snapshot["settings"]["language"], "en")
+            self.assertEqual(snapshot["settings"]["theme"], "system")
+            analytics = snapshot["analytics"]
+            self.assertEqual(analytics["periods"]["last_7_days"]["requests"], 1)
+            self.assertEqual(analytics["periods"]["last_7_days"]["cost"], 2.4)
+            self.assertEqual(analytics["economics"]["output_input_ratio"], 0.5)
+            self.assertEqual(analytics["economics"]["cache_savings_estimate"], 0.1)
+            self.assertEqual(analytics["performance"]["request_tokens"]["p90"], 1800000.0)
+            self.assertEqual(analytics["models"][0]["cost_per_1k_output"], 0.0048)
             self.assertEqual(responses[1]["result"]["body"], "lazy response body")
             archive = zipfile.ZipFile(
                 __import__("io").BytesIO(base64.b64decode(responses[2]["result"]["data"]))
@@ -107,6 +118,8 @@ class WorkerProtocolTests(unittest.TestCase):
                 "requests.csv", "sessions.csv", "daily.csv", "models.csv"
             })
             self.assertIn("request-1", archive.read("requests.csv").decode("utf-8"))
+            self.assertEqual(responses[3]["result"]["snapshot"]["settings"]["theme"], "ocean")
+            self.assertEqual(json.loads(prices.read_text(encoding="utf-8"))["settings"]["theme"], "ocean")
 
 
 if __name__ == "__main__":

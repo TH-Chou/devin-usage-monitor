@@ -2,7 +2,7 @@
   "name": "devin-token-monitor",
   "displayName": "Devin Token Monitor",
   "description": "Monitor local Devin CLI token usage and estimated cost from VS Code, Cursor, and compatible desktop IDEs.",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "publisher": "th-chou",
   "license": "Apache-2.0",
   "homepage": "https://github.com/TH-Chou/devin-usage-monitor",

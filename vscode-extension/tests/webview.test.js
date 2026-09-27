@@ -7,6 +7,17 @@ const { renderDashboard } = require('../webview');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'media', 'dashboard.html'), 'utf8');
 
+test('dashboard themes and token insights are included', () => {
+  for (const theme of ['midnight', 'graphite', 'paper', 'ocean', 'forest']) {
+    assert.match(source, new RegExp(`data-theme=\\"${theme}\\"`));
+    assert.match(source, new RegExp(`option value=\\"${theme}\\"`));
+  }
+  assert.match(source, /id="v-insights"/);
+  assert.match(source, /id="analysis-percentiles"/);
+  assert.match(source, /\.view#v-insights #analysis-kpis\{margin-bottom:20px\}/);
+  assert.match(source, /month_projection/);
+});
+
 test('dashboard is adapted to a nonce-CSP VS Code Webview', () => {
   const html = renderDashboard(source, 'vscode-webview-resource:', 'testNonce123');
   assert.match(html, /script-src 'nonce-testNonce123'/);

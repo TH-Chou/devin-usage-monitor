@@ -23,7 +23,7 @@
 Devin CLI records every request's token metrics in a local SQLite database —
 but gives you no way to *see* them. Devin Token Monitor turns that data into a
 real-time picture of what you're spending: fully local, read-only, no server,
-no account, nothing leaves your Mac.
+no account, usage data stays on your machine.
 
 ## Highlights
 
@@ -38,6 +38,8 @@ no account, nothing leaves your Mac.
 | **Six languages** | 中文 · English · 日本語 · 한국어 · Español · Tiếng Việt — persisted, applied to web view *and* native chrome. |
 | **Auto refresh** | Incremental `row_id` watermark polling (~15 s); launch-time full aggregation ≈ 0.3 s. |
 | **IDE extension** | VSIX for desktop VS Code and compatible IDEs: status-bar cost, dashboard Webview, database picker, price-table editing, and CSV export. |
+| **Six visual themes** | System, Midnight, Graphite, Warm Paper, Deep Ocean, and Forest palettes; choice persists across app sessions. |
+| **Token analytics** | Rolling 7/30-day and month-to-date summaries, run-rate projection, estimated cache savings, output efficiency, model comparisons, and P50/P90 request-size and latency distributions. |
 
 ## Install
 
@@ -57,7 +59,7 @@ Build and install the VSIX from source:
 cd vscode-extension
 npm install
 npm run package
-code --install-extension devin-token-monitor-0.2.7.vsix
+code --install-extension devin-token-monitor-0.2.8.vsix
 ```
 
 Then run **Devin Token Monitor: Open Dashboard** from the Command Palette. Requires Python 3.10+ on the local machine. Cursor supports VSIX-compatible extensions; Windsurf and other forks may vary by version and extension-install policy. Browser-only VS Code (`vscode.dev` / `github.dev`) is not supported because it cannot spawn the local Python worker or access the local SQLite database. See [`vscode-extension/README.md`](vscode-extension/README.md) and [the compatibility research](vscode-extension/RESEARCH.md).

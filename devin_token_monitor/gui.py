@@ -210,11 +210,21 @@ _L = {
         "save_title": "Xuất dữ liệu sử dụng",
     },
 }
-_NAV_KEYS = ("nav_overview", "nav_models", "nav_sessions", "nav_requests", "nav_settings")
+_NAV_KEYS = ("nav_overview", "nav_insights", "nav_models", "nav_sessions", "nav_requests", "nav_settings")
+_NATIVE_EXTRA = {
+    "zh": {"nav_insights": "分析"}, "en": {"nav_insights": "Insights"},
+    "ja": {"nav_insights": "分析"}, "ko": {"nav_insights": "분석"},
+    "es": {"nav_insights": "Análisis"}, "vi": {"nav_insights": "Phân tích"},
+}
 
 
 def _nlf(lang: str, key: str, **kw) -> str:
-    s = _L.get(lang, _L["en"]).get(key) or _L["en"].get(key) or key
+    s = (
+        _L.get(lang, _L["en"]).get(key)
+        or _NATIVE_EXTRA.get(lang, {}).get(key)
+        or _L["en"].get(key)
+        or key
+    )
     for k, v in kw.items():
         s = s.replace("{" + k + "}", str(v))
     return s
@@ -245,6 +255,7 @@ class AppDelegate(NSObject):
         }
         self._alerted_day = None
         self._lang = self.agg.prices.language
+        self._theme = str(self.agg.prices.settings.get("theme", "system") or "system")
         try:
             self.agg.poll()
         except Exception as e:
@@ -416,18 +427,20 @@ class AppDelegate(NSObject):
         subtitle = self._subtitle
         for label in (title, subtitle):
             label.setAutoresizingMask_(AK.NSViewMinYMargin)
-        self._views = ("overview", "models", "sessions", "requests", "settings")
+        self._views = ("overview", "insights", "models", "sessions", "requests", "settings")
         self._nav_buttons = []
         self.selection = AK.NSBox.alloc().initWithFrame_(NSMakeRect(10, top - 142, 190, 38))
         self.selection.setBoxType_(AK.NSBoxCustom)
         self.selection.setBorderType_(AK.NSNoBorder)
         self.selection.setTitlePosition_(AK.NSNoTitle)
         self.selection.setCornerRadius_(12)
-        self.selection.setFillColor_(AK.NSColor.controlAccentColor().colorWithAlphaComponent_(0.14))
+        self._native_accent = AK.NSColor.controlAccentColor()
+        self._apply_native_theme(self._theme)
+        self.selection.setFillColor_(self._native_accent.colorWithAlphaComponent_(0.14))
         self.selection.setAutoresizingMask_(AK.NSViewMinYMargin)
         content.addSubview_(self.selection)
-        items = (("nav_overview", "chart.bar"), ("nav_models", "square.stack"),
-                 ("nav_sessions", "bubble.left"),
+        items = (("nav_overview", "chart.bar"), ("nav_insights", "chart.xyaxis.line"),
+                 ("nav_models", "square.stack"), ("nav_sessions", "bubble.left"),
                  ("nav_requests", "list.bullet"), ("nav_settings", "slider.horizontal.3"))
         for index, (key, symbol) in enumerate(items):
             title = self._nl(key)
@@ -502,6 +515,23 @@ class AppDelegate(NSObject):
                 item.setTitle_(nl(key))
         self._select_navigation(getattr(self, "_current_view", "overview"))
 
+    @objc.python_method
+    def _apply_native_theme(self, theme):
+        accents = {
+            "midnight": "#8ca8ff", "graphite": "#b7c3cc",
+            "paper": "#96613f", "ocean": "#59bce9", "forest": "#88cb96",
+        }
+        color = accents.get(theme)
+        if color:
+            rgb = tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+            self._native_accent = AK.NSColor.colorWithSRGBRed_green_blue_alpha_(*rgb, 1)
+        else:
+            self._native_accent = AK.NSColor.controlAccentColor()
+        if hasattr(self, "selection"):
+            self.selection.setFillColor_(self._native_accent.colorWithAlphaComponent_(0.14))
+        if hasattr(self, "_nav_buttons"):
+            self._select_navigation(getattr(self, "_current_view", "overview"))
+
     @_guarded
     def windowKey_(self, _note):
         # status-menu "Show Window" is a native action (no Python sender
@@ -517,7 +547,7 @@ class AppDelegate(NSObject):
         frame = self._nav_buttons[index].frame()
         self.selection.setFrameOrigin_((10, frame.origin.y))
         for i, button in enumerate(self._nav_buttons):
-            button.setContentTintColor_(AK.NSColor.controlAccentColor() if i == index
+            button.setContentTintColor_(self._native_accent if i == index
                                         else AK.NSColor.labelColor())
             button.setAccessibilityValue_(self._nl("sel_on") if i == index else "")
 
@@ -584,6 +614,14 @@ class AppDelegate(NSObject):
                 self.agg.prices = PriceTable.load()
             except Exception as e:
                 print(f"setLanguage error: {e}")
+            self.push()
+        elif action == "setTheme":
+            v = str(body.objectForKey_("value") or "system")
+            try:
+                self.agg.prices.update_settings({"theme": v})
+                self.agg.prices = PriceTable.load()
+            except Exception as e:
+                print(f"setTheme error: {e}")
             self.push()
         elif action == "getBody":
             # lazy-load one request's reply body off the main thread, then
@@ -689,6 +727,10 @@ class AppDelegate(NSObject):
         if lang != self._lang:
             self._lang = lang
             self._apply_lang()
+        theme = str((snap.get("settings") or {}).get("theme", "system") or "system")
+        if theme != self._theme:
+            self._theme = theme
+            self._apply_native_theme(theme)
         today = snap.get("today") or {}
         cost = today.get("cost") or 0
         title = _fmt_cost(cost)

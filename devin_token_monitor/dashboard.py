@@ -36,7 +36,7 @@ PAGE = """<!DOCTYPE html>
   --easeout:cubic-bezier(.16,1,.3,1);
 }
 @media (prefers-color-scheme:dark) {
-  :root {
+  :root:not([data-theme]) {
     --fg:#f2f2f7; --dim:#a4a6ad; --faint:#8c8e96;
     --hair:rgba(255,255,255,.07);
     --card:#242629; --canvas:#1b1d20; --sidebar:rgba(36,38,43,.7);
@@ -47,6 +47,46 @@ PAGE = """<!DOCTYPE html>
     --blue:#0a84ff; --green:#30d158; --tan:#ff9f0a; --slate:#e5e5ea;
     --red:#ff453a; --purple:#bf5af2; --teal:#64d2ff;
   }
+}
+html[data-theme="midnight"] {
+  color-scheme:dark; --fg:#e7ecfb; --dim:#a2aecb; --faint:#7d8aaa;
+  --hair:rgba(179,197,255,.10); --card:#151d32; --canvas:#0b1020;
+  --sidebar:rgba(20,29,51,.82); --brd:rgba(179,197,255,.11);
+  --shadow:0 3px 18px rgba(0,0,0,.20); --shadow-lg:0 18px 55px rgba(0,0,0,.42);
+  --accent:#8ca8ff; --acc-dark:#6c8df2; --blue:#8ca8ff; --green:#54d6ad;
+  --tan:#f2bd6d; --slate:#d3d9e9; --red:#ff7185; --purple:#c4a2ff; --teal:#5bd4e8;
+}
+html[data-theme="graphite"] {
+  color-scheme:dark; --fg:#edf0f2; --dim:#a8afb5; --faint:#818b93;
+  --hair:rgba(230,237,241,.09); --card:#22272b; --canvas:#171b1e;
+  --sidebar:rgba(34,39,43,.84); --brd:rgba(230,237,241,.09);
+  --shadow:0 2px 12px rgba(0,0,0,.25); --shadow-lg:0 16px 48px rgba(0,0,0,.42);
+  --accent:#b7c3cc; --acc-dark:#93a2ad; --blue:#80b4cf; --green:#8cc7a5;
+  --tan:#d8b87a; --slate:#dce2e5; --red:#e88d8d; --purple:#b4a0cf; --teal:#76c9c5;
+}
+html[data-theme="paper"] {
+  color-scheme:light; --fg:#342f28; --dim:#766e62; --faint:#92897c;
+  --hair:rgba(85,66,42,.12); --card:#fffdf8; --canvas:#f4efe5;
+  --sidebar:rgba(238,229,212,.84); --brd:rgba(85,66,42,.10);
+  --shadow:0 2px 12px rgba(74,57,34,.05); --shadow-lg:0 18px 48px rgba(74,57,34,.18);
+  --accent:#96613f; --acc-dark:#77492f; --blue:#4f7eaa; --green:#5c8a69;
+  --tan:#c28540; --slate:#5e5b55; --red:#bc5d4e; --purple:#8965a0; --teal:#438f91;
+}
+html[data-theme="ocean"] {
+  color-scheme:dark; --fg:#e2f2fb; --dim:#9bb9ca; --faint:#7899ac;
+  --hair:rgba(126,198,228,.11); --card:#102b40; --canvas:#071b2b;
+  --sidebar:rgba(12,38,57,.88); --brd:rgba(126,198,228,.12);
+  --shadow:0 3px 16px rgba(0,0,0,.22); --shadow-lg:0 18px 52px rgba(0,0,0,.42);
+  --accent:#59bce9; --acc-dark:#3597c6; --blue:#59bce9; --green:#69d4ba;
+  --tan:#f2b86b; --slate:#c6dbe6; --red:#f17f81; --purple:#bb9ce9; --teal:#53d8d0;
+}
+html[data-theme="forest"] {
+  color-scheme:dark; --fg:#e5f0e7; --dim:#a7b9aa; --faint:#809783;
+  --hair:rgba(157,205,165,.10); --card:#1b3024; --canvas:#101e16;
+  --sidebar:rgba(25,47,34,.86); --brd:rgba(157,205,165,.11);
+  --shadow:0 3px 16px rgba(0,0,0,.24); --shadow-lg:0 18px 52px rgba(0,0,0,.40);
+  --accent:#88cb96; --acc-dark:#64aa74; --blue:#84b9df; --green:#88cb96;
+  --tan:#e1bd78; --slate:#d1dfd2; --red:#ef8580; --purple:#c2a0d7; --teal:#70c9b0;
 }
 * { box-sizing:border-box; }
 html { -webkit-font-smoothing:antialiased; }
@@ -392,6 +432,37 @@ nav a.on { color:var(--accent); background:rgba(0,122,255,.1); }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
 }
+.view#v-insights #analysis-kpis{margin-bottom:20px}
+.insight-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.insight-panel{padding:18px;min-width:0}
+.insight-panel h3{margin:0 0 4px;font-size:14px;font-weight:600}
+.insight-panel .desc{color:var(--dim);font-size:11.5px;margin-bottom:12px}
+.insight-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.insight-value{padding:10px 12px;border:1px solid var(--brd);border-radius:11px;background:var(--canvas)}
+.insight-value span{display:block;color:var(--dim);font-size:11px}
+.insight-value b{display:block;margin-top:3px;font-size:16px;font-variant-numeric:tabular-nums}
+.insight-table{width:100%;border-collapse:collapse}
+.insight-table th,.insight-table td{padding:8px 9px;font-size:11.5px;white-space:nowrap}
+.insight-table th{color:var(--dim);font-weight:500;text-align:right}
+.insight-table th:first-child,.insight-table td:first-child{text-align:left}
+.insight-table td{text-align:right;border-top:1px solid var(--hair);font-variant-numeric:tabular-nums}
+#set-theme{min-width:190px;border:1px solid var(--brd);background:var(--card);color:var(--fg);border-radius:8px;padding:7px 10px;font:inherit}
+@media(max-width:900px){.insight-grid{grid-template-columns:1fr}.insight-table{display:block;overflow-x:auto}}
+html[data-theme="paper"] nav a:hover,html[data-theme="paper"] .btn:hover,
+html[data-theme="paper"] .donut-legend .row:hover,html[data-theme="paper"] .donut-legend .row.hl,
+html[data-theme="paper"] tbody tr:hover,html[data-theme="paper"] .hbars .hr:hover{background:rgba(73,54,31,.07)}
+html[data-theme="paper"] .seg{background:rgba(73,54,31,.10)}
+html[data-theme="paper"] .btn:active{background:#e7dece}
+html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[data-theme="forest"]) nav a:hover,
+html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[data-theme="forest"]) .btn:hover,
+html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[data-theme="forest"]) .donut-legend .row:hover,
+html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[data-theme="forest"]) .donut-legend .row.hl,
+html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[data-theme="forest"]) tbody tr:hover,
+html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[data-theme="forest"]) .hbars .hr:hover{background:rgba(255,255,255,.07)}
+html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[data-theme="forest"]) .seg{background:rgba(255,255,255,.09)}
+html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[data-theme="forest"]) .btn:active{background:rgba(255,255,255,.13)}
+html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[data-theme="forest"]) .reqbody pre,
+html:is([data-theme="midnight"],[data-theme="graphite"],[data-theme="ocean"],[data-theme="forest"]) .mono{background:rgba(255,255,255,.07)}
 </style>
 </head>
 <body>
@@ -400,6 +471,7 @@ nav a.on { color:var(--accent); background:rgba(0,122,255,.1); }
     <div class="logo"><div><b>Devin Token</b><span data-i18n="logo_sub">用量与费用</span></div></div>
     <nav id="nav">
       <a data-v="overview" class="on"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5"/><rect x="11" y="2.5" width="6.5" height="6.5" rx="1.5"/><rect x="2.5" y="11" width="6.5" height="6.5" rx="1.5"/><rect x="11" y="11" width="6.5" height="6.5" rx="1.5"/></svg></span><span data-i18n="nav_overview">概览</span></a>
+      <a data-v="insights"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16.5V10M8 16.5V4M13 16.5V7M18 16.5V2"/><path d="M2 17.5h17"/></svg></span><span data-i18n="nav_insights">分析</span></a>
       <a data-v="models"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4.5" width="11" height="11" rx="2"/><rect x="8" y="8" width="4" height="4" rx="1"/><path d="M7 2v2.5M10 2v2.5M13 2v2.5M7 15.5V18M10 15.5V18M13 15.5V18M2 7h2.5M2 10h2.5M2 13h2.5M15.5 7H18M15.5 10H18M15.5 13H18"/></svg></span><span data-i18n="nav_models">模型</span></a>
       <a data-v="sessions"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 3.5h10a2 2 0 012 2v4.5a2 2 0 01-2 2h-4.3l-3.4 2.6v-2.4H4a2 2 0 01-2-2V5.5a2 2 0 011.5-2z"/><circle cx="6.6" cy="8" r="0.9" fill="currentColor" stroke="none"/><circle cx="9.8" cy="8" r="0.9" fill="currentColor" stroke="none"/><circle cx="13" cy="8" r="0.9" fill="currentColor" stroke="none"/></svg></span><span data-i18n="nav_sessions">会话</span></a>
       <a data-v="requests"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="6.5" y1="5" x2="17.5" y2="5"/><line x1="6.5" y1="10" x2="17.5" y2="10"/><line x1="6.5" y1="15" x2="17.5" y2="15"/><circle cx="3.5" cy="5" r="1"/><circle cx="3.5" cy="10" r="1"/><circle cx="3.5" cy="15" r="1"/></svg></span><span data-i18n="nav_requests">请求</span></a>
@@ -465,6 +537,32 @@ nav a.on { color:var(--accent); background:rgba(0,122,255,.1); }
         <div class="panel"><div id="ch-scatter"></div><div class="tip" id="tip-scatter"></div></div></div>
     </section>
 
+    <section class="view" id="v-insights">
+      <div class="sec-head"><h2 data-i18n="an_title">深入分析</h2>
+        <div class="seg" id="seg-analysis"><i class="thumb"></i>
+          <button data-v="7d" class="on" data-i18n="an_last7">7 天</button>
+          <button data-v="30d" data-i18n="an_last30">30 天</button>
+          <button data-v="mtd" data-i18n="an_mtd">本月</button>
+          <button data-v="all" data-i18n="an_all">累计</button></div></div>
+      <div class="cards" id="analysis-kpis"></div>
+      <div class="insight-grid">
+        <div class="panel insight-panel"><h3 data-i18n="an_economics">Token 效率</h3>
+          <div class="desc" data-i18n="an_economics_desc">结合模型单价衡量缓存价值与生成效率。</div>
+          <div class="insight-values" id="analysis-economics"></div></div>
+        <div class="panel insight-panel"><h3 data-i18n="an_distribution">请求规模与性能分位</h3>
+          <div class="desc" id="analysis-sample"></div>
+          <table class="insight-table"><thead><tr><th data-i18n="an_metric">指标</th><th>P50</th><th>P90</th></tr></thead>
+            <tbody id="analysis-percentiles"></tbody></table></div>
+        <div class="panel insight-panel" style="grid-column:1/-1"><h3 data-i18n="an_models">模型效率对比</h3>
+          <div class="desc" data-i18n="an_models_desc">区分高产模型、缓存收益与单位输出成本。</div>
+          <table class="insight-table"><thead><tr>
+            <th data-i18n="col_model">模型</th><th data-i18n="col_req">请求</th>
+            <th data-i18n="an_tokens_req">Token/请求</th><th data-i18n="an_out_in">输出/输入</th>
+            <th data-i18n="an_cache_saved">估算缓存节省</th><th data-i18n="an_cost_1k">每千输出成本</th>
+          </tr></thead><tbody id="analysis-models"></tbody></table></div>
+      </div>
+    </section>
+
     <section class="view" id="v-sessions">
       <div class="panel pad0"><table><thead><tr>
         <th class="l nosort" data-i18n="col_last">最后活动</th><th class="l nosort" data-i18n="col_title">标题</th>
@@ -506,6 +604,18 @@ nav a.on { color:var(--accent); background:rgba(0,122,255,.1); }
             <span class="chip" data-lang="es">Español</span>
             <span class="chip" data-lang="vi">Tiếng Việt</span>
           </div>
+        </div>
+        <div class="panel set-card">
+          <h3 data-i18n="st_theme">主题外观</h3>
+          <div class="desc" data-i18n="st_theme_desc">切换配色预设；系统模式跟随操作系统外观。</div>
+          <div class="set-row"><select id="set-theme">
+            <option value="system" data-i18n="theme_system">跟随系统</option>
+            <option value="midnight" data-i18n="theme_midnight">午夜蓝</option>
+            <option value="graphite" data-i18n="theme_graphite">石墨</option>
+            <option value="paper" data-i18n="theme_paper">暖纸</option>
+            <option value="ocean" data-i18n="theme_ocean">深海</option>
+            <option value="forest" data-i18n="theme_forest">森林</option>
+          </select></div>
         </div>
         <div class="panel set-card">
           <h3 data-i18n="st_budget">每日预算告警</h3>
@@ -551,7 +661,14 @@ nav a.on { color:var(--accent); background:rgba(0,122,255,.1); }
 <script>
 'use strict';
 let DATA=null, started=false;
-const C={input:'#007aff',output:'#34c759',cache:'#ff9500',cost:'#ff3b30'};
+let C={input:'#007aff',output:'#34c759',cache:'#ff9500',cost:'#ff3b30'};
+function syncChartColors(){
+  const css=getComputedStyle(document.documentElement);
+  C={input:css.getPropertyValue('--blue').trim()||'#007aff',
+    output:css.getPropertyValue('--green').trim()||'#34c759',
+    cache:css.getPropertyValue('--tan').trim()||'#ff9500',
+    cost:css.getPropertyValue('--red').trim()||'#ff3b30'};
+}
 const MODEL_DOTS=['#007aff','#34c759','#ff9500','#af52de','#ff3b30',
                   '#5ac8fa','#ffcc00','#5856d6','#ff2d55','#64d2ff'];
 const native_=window.webkit&&window.webkit.messageHandlers&&
@@ -752,11 +869,35 @@ st_lang:'Ngôn ngữ / Language',st_lang_desc:'Chọn ngôn ngữ giao diện (t
 toast_budget:'Đã đặt ngân sách ngày {v}',toast_budget_off:'Đã tắt cảnh báo ngân sách',toast_native_only:'Chỉ trong app desktop',
 toast_edit_prices:'Hãy sửa prices.json trong thư mục dự án',
 empty_sessions:'Chưa có dữ liệu phiên',empty_scatter:'Chưa có mẫu để vẽ (cần dữ liệu tốc độ)',donut_total:'Tổng chi phí',share:'Tỷ trọng'}};
+const EXTRA_I18N={
+zh:{nav_insights:'分析',st_theme:'主题外观',st_theme_desc:'选择配色方案；系统模式跟随系统外观。',theme_system:'跟随系统',theme_midnight:'午夜蓝',theme_graphite:'石墨',theme_paper:'暖纸',theme_ocean:'深海',theme_forest:'森林',an_title:'深入分析',an_last7:'7 天',an_last30:'30 天',an_mtd:'本月',an_all:'累计',an_period_cost:'所选周期费用',an_period_tokens:'所选周期 Tokens',an_period_requests:'所选周期请求',an_active_days:'活跃天数',an_avg_tokens_active:'活跃日均 Tokens',an_month_projection:'本月费用预测',an_trend:'较上一周期',an_economics:'Token 效率',an_economics_desc:'结合模型单价衡量缓存价值与生成效率。',an_cache_saved:'估算缓存节省',an_output_input:'输出 / 输入比例',an_tokens_per_request:'平均 Tokens / 请求',an_cost_per_1k:'每千输出 Tokens 成本',an_distribution:'请求规模与性能分位',an_sample:'最近 {n} 个请求样本',an_metric:'指标',an_request_tokens:'请求总 Tokens',an_input:'输入 Tokens',an_output:'输出 Tokens',an_ttft:'首字延迟',an_latency:'完整请求耗时',an_speed:'生成速度',an_models:'模型效率对比',an_models_desc:'比较请求规模、输出效率、缓存收益与单位输出成本。'},
+en:{nav_insights:'Insights',st_theme:'Appearance',st_theme_desc:'Choose a palette; System follows the operating-system appearance.',theme_system:'System',theme_midnight:'Midnight',theme_graphite:'Graphite',theme_paper:'Warm Paper',theme_ocean:'Deep Ocean',theme_forest:'Forest',an_title:'Token Analytics',an_last7:'7 days',an_last30:'30 days',an_mtd:'Month to date',an_all:'All time',an_period_cost:'Cost in period',an_period_tokens:'Tokens in period',an_period_requests:'Requests in period',an_active_days:'Active days',an_calendar_days:'calendar days',an_avg_tokens_active:'Tokens per active day',an_month_projection:'Projected month cost',an_trend:'Change vs prior period',an_economics:'Token efficiency',an_economics_desc:'Cache value and output efficiency estimated from configured model prices.',an_cache_saved:'Estimated cache savings',an_output_input:'Output / input ratio',an_tokens_per_request:'Tokens per request',an_cost_per_1k:'Cost per 1K output tokens',an_distribution:'Request size and performance percentiles',an_sample:'Sample of the most recent {n} requests',an_metric:'Metric',an_request_tokens:'Request tokens',an_input:'Input tokens',an_output:'Output tokens',an_ttft:'Time to first token',an_latency:'Request duration',an_speed:'Generation speed',an_models:'Model efficiency',an_models_desc:'Compare request size, output efficiency, cache value and unit-output cost.'},
+ja:{nav_insights:'分析',st_theme:'外観',st_theme_desc:'配色を選択します。システムは OS の外観に従います。',theme_system:'システム',theme_midnight:'ミッドナイト',theme_graphite:'グラファイト',theme_paper:'ウォームペーパー',theme_ocean:'深海',theme_forest:'フォレスト',an_title:'トークン分析',an_last7:'7日間',an_last30:'30日間',an_mtd:'今月',an_all:'全期間',an_period_cost:'期間内の費用',an_period_tokens:'期間内のトークン',an_period_requests:'期間内のリクエスト',an_active_days:'利用日数',an_avg_tokens_active:'利用日あたりのトークン',an_month_projection:'今月の費用予測',an_trend:'前期間との比較',an_economics:'トークン効率',an_economics_desc:'設定価格に基づくキャッシュ価値と出力効率。',an_cache_saved:'推定キャッシュ節約額',an_output_input:'出力 / 入力比',an_tokens_per_request:'リクエストあたりのトークン',an_cost_per_1k:'出力1Kトークンあたりの費用',an_distribution:'リクエスト規模と性能のパーセンタイル',an_sample:'直近 {n} 件のサンプル',an_metric:'指標',an_request_tokens:'リクエストトークン',an_input:'入力トークン',an_output:'出力トークン',an_ttft:'初回トークン時間',an_latency:'リクエスト所要時間',an_speed:'生成速度',an_models:'モデル効率',an_models_desc:'リクエスト規模、出力効率、キャッシュ価値、単位出力コストを比較。'},
+ko:{nav_insights:'분석',st_theme:'테마',st_theme_desc:'색상 테마를 선택합니다. 시스템은 OS 모양을 따릅니다.',theme_system:'시스템',theme_midnight:'미드나잇',theme_graphite:'그래파이트',theme_paper:'웜 페이퍼',theme_ocean:'딥 오션',theme_forest:'포레스트',an_title:'토큰 분석',an_last7:'7일',an_last30:'30일',an_mtd:'이번 달',an_all:'전체',an_period_cost:'기간 비용',an_period_tokens:'기간 토큰',an_period_requests:'기간 요청',an_active_days:'활성 일수',an_avg_tokens_active:'활성일당 토큰',an_month_projection:'월 비용 예상',an_trend:'이전 기간 대비',an_economics:'토큰 효율',an_economics_desc:'설정된 모델 가격으로 캐시 가치와 출력 효율을 추정합니다.',an_cache_saved:'예상 캐시 절감액',an_output_input:'출력 / 입력 비율',an_tokens_per_request:'요청당 토큰',an_cost_per_1k:'출력 토큰 1K당 비용',an_distribution:'요청 규모 및 성능 백분위',an_sample:'최근 {n}개 요청 표본',an_metric:'지표',an_request_tokens:'요청 토큰',an_input:'입력 토큰',an_output:'출력 토큰',an_ttft:'첫 토큰 시간',an_latency:'요청 소요 시간',an_speed:'생성 속도',an_models:'모델 효율',an_models_desc:'요청 규모, 출력 효율, 캐시 가치와 단위 출력 비용을 비교합니다.'},
+es:{nav_insights:'Análisis',st_theme:'Apariencia',st_theme_desc:'Elige una paleta; Sistema sigue la apariencia del sistema operativo.',theme_system:'Sistema',theme_midnight:'Medianoche',theme_graphite:'Grafito',theme_paper:'Papel cálido',theme_ocean:'Océano profundo',theme_forest:'Bosque',an_title:'Análisis de tokens',an_last7:'7 días',an_last30:'30 días',an_mtd:'Este mes',an_all:'Todo',an_period_cost:'Costo del período',an_period_tokens:'Tokens del período',an_period_requests:'Solicitudes del período',an_active_days:'Días activos',an_avg_tokens_active:'Tokens por día activo',an_month_projection:'Costo mensual previsto',an_trend:'Cambio frente al período anterior',an_economics:'Eficiencia de tokens',an_economics_desc:'Valor de caché y eficiencia de salida estimados con los precios configurados.',an_cache_saved:'Ahorro estimado por caché',an_output_input:'Proporción salida / entrada',an_tokens_per_request:'Tokens por solicitud',an_cost_per_1k:'Costo por 1K tokens de salida',an_distribution:'Percentiles de tamaño y rendimiento',an_sample:'Muestra de las {n} solicitudes recientes',an_metric:'Métrica',an_request_tokens:'Tokens por solicitud',an_input:'Tokens de entrada',an_output:'Tokens de salida',an_ttft:'Tiempo hasta el primer token',an_latency:'Duración de solicitud',an_speed:'Velocidad de generación',an_models:'Eficiencia por modelo',an_models_desc:'Compara tamaño de solicitud, eficiencia de salida, valor de caché y costo unitario.'},
+vi:{nav_insights:'Phân tích',st_theme:'Giao diện',st_theme_desc:'Chọn bảng màu; Hệ thống theo giao diện hệ điều hành.',theme_system:'Hệ thống',theme_midnight:'Nửa đêm',theme_graphite:'Than chì',theme_paper:'Giấy ấm',theme_ocean:'Đại dương sâu',theme_forest:'Rừng',an_title:'Phân tích token',an_last7:'7 ngày',an_last30:'30 ngày',an_mtd:'Trong tháng',an_all:'Toàn bộ',an_period_cost:'Chi phí kỳ này',an_period_tokens:'Token kỳ này',an_period_requests:'Yêu cầu kỳ này',an_active_days:'Ngày hoạt động',an_avg_tokens_active:'Token mỗi ngày hoạt động',an_month_projection:'Dự báo chi phí tháng',an_trend:'Thay đổi so với kỳ trước',an_economics:'Hiệu quả token',an_economics_desc:'Ước tính giá trị bộ nhớ đệm và hiệu quả đầu ra theo bảng giá.',an_cache_saved:'Tiết kiệm cache ước tính',an_output_input:'Tỷ lệ đầu ra / đầu vào',an_tokens_per_request:'Token mỗi yêu cầu',an_cost_per_1k:'Chi phí mỗi 1K token đầu ra',an_distribution:'Phân vị quy mô và hiệu suất yêu cầu',an_sample:'Mẫu {n} yêu cầu gần đây',an_metric:'Chỉ số',an_request_tokens:'Token mỗi yêu cầu',an_input:'Token đầu vào',an_output:'Token đầu ra',an_ttft:'Thời gian đến token đầu tiên',an_latency:'Thời lượng yêu cầu',an_speed:'Tốc độ tạo',an_models:'Hiệu quả mô hình',an_models_desc:'So sánh quy mô yêu cầu, hiệu quả đầu ra, giá trị cache và chi phí đơn vị.'}
+};
 const DOWSL={zh:['一','二','三','四','五','六','日'],en:['Mo','Tu','We','Th','Fr','Sa','Su'],
   ja:['月','火','水','木','金','土','日'],ko:['월','화','수','목','금','토','일'],
   es:['lu','ma','mi','ju','vi','sá','do'],vi:['T2','T3','T4','T5','T6','T7','CN']};
-const t=k=>(I18N[LANG]&&I18N[LANG][k])||I18N.zh[k]||k;
+const t=k=>(I18N[LANG]&&I18N[LANG][k])||(EXTRA_I18N[LANG]&&EXTRA_I18N[LANG][k])||
+  I18N.zh[k]||EXTRA_I18N.en[k]||k;
 const tf=(k,o)=>t(k).replace(/\\{(\\w+)\\}/g,(m,p)=>o[p]!=null?o[p]:m);
+const THEMES=new Set(['system','midnight','graphite','paper','ocean','forest']);
+function applyTheme(theme){
+  theme=THEMES.has(theme)?theme:'system';
+  if(theme==='system')document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.dataset.theme=theme;
+  syncChartColors();
+}
+function setTheme(theme){
+  if(!THEMES.has(theme))return;
+  applyTheme(theme);
+  if(native_)native_.postMessage({action:'setTheme',value:theme});
+  else fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({theme})}).catch(()=>{});
+  if(DATA){DATA.settings.theme=theme;update(DATA);}
+}
 function applyLang(){
   document.documentElement.lang=LOCALE[LANG]||'zh-CN';
   document.querySelectorAll('[data-i18n]').forEach(el=>{
@@ -772,7 +913,7 @@ function setLang(l){
   if(native_)native_.postMessage({action:'setLanguage',value:l});
   else fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({language:l})}).catch(()=>{});
-  applyLang();if(DATA)update(DATA);}
+  applyLang();if(DATA){DATA.settings.language=l;update(DATA);}}
 
 function toast(msg){const t=document.getElementById('toast');
   t.textContent=msg;t.classList.add('show');
@@ -793,8 +934,8 @@ function animateValue(el,to,fmt){
 }
 
 // ---------- nav / views ----------
-const TKEYS={overview:'nav_overview',models:'nav_models',sessions:'nav_sessions',
-             requests:'nav_requests',settings:'nav_settings'};
+const TKEYS={overview:'nav_overview',insights:'nav_insights',models:'nav_models',
+             sessions:'nav_sessions',requests:'nav_requests',settings:'nav_settings'};
 function navigateTo(v){
   if(!TKEYS[v])return;
   document.querySelectorAll('nav a').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
@@ -810,11 +951,11 @@ document.getElementById('nav').addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape')document.getElementById('overlay').classList.remove('open');
-  if(e.metaKey&&e.key>='1'&&e.key<='5'){
+  if(e.metaKey&&e.key>='1'&&e.key<='6'){
     document.querySelectorAll('nav a')[+e.key-1].click();}
   if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){
     e.preventDefault();
-    document.querySelectorAll('nav a')[3].click();
+    document.querySelector('nav a[data-v="requests"]').click();
     document.getElementById('f-session').focus();}
 });
 
@@ -960,8 +1101,8 @@ function gridLines(W,H,pl,pr,pt,ih,fmt){
 }
 
 // ---------- stacked token-mix bars ----------
-const MIX=[['cache_read','ser_cache','#ff9500'],['input','ser_input','#007aff'],
-           ['cache_creation','ser_cachew','#af52de'],['output','ser_output','#34c759']];
+const MIX=[['cache_read','ser_cache','var(--tan)'],['input','ser_input','var(--blue)'],
+           ['cache_creation','ser_cachew','var(--purple)'],['output','ser_output','var(--green)']];
 function drawMix(){
   document.getElementById('leg-mix').innerHTML=MIX.map(m=>
     `<span><i style="background:${m[2]}"></i>${t(m[1])}</span>`).join('');
@@ -1357,6 +1498,7 @@ document.getElementById('set-export2').onclick=doExport;
 document.getElementById('set-open-prices').onclick=()=>{
   if(native_)native_.postMessage({action:'editPrices'});
   else toast(t('toast_edit_prices'));};
+document.getElementById('set-theme').onchange=e=>setTheme(e.target.value);
 document.getElementById('set-budget-save').onclick=()=>{
   const v=parseFloat(document.getElementById('set-budget').value)||0;
   if(native_)native_.postMessage({action:'setBudget',value:v});
@@ -1416,8 +1558,70 @@ function kpis(d){
   setTxt('sf-req',tf('sf_reqs',{n:td.requests}));
 }
 
+// ---------- token analytics ----------
+let insightPeriod='7d';
+const periodData=()=>{
+  const a=DATA.analytics||{},p=a.periods||{};
+  if(insightPeriod==='30d')return{data:p.last_30_days||{},change:p.comparison_30d_pct};
+  if(insightPeriod==='mtd')return{data:p.month_to_date||{},change:null};
+  if(insightPeriod==='all'){
+    const active=DATA.by_day.length,total=DATA.total||{};
+    return{data:{...total,active_days:active,calendar_days:active,
+      avg_tokens_per_active_day:active?Math.round(total.total/active):0},change:null};
+  }
+  return{data:p.last_7_days||{},change:p.comparison_7d_pct};
+};
+function drawInsights(){
+  if(!DATA)return;
+  const analytics=DATA.analytics||{},economics=analytics.economics||{};
+  const {data:p,change}=periodData(),forecast=(analytics.periods||{}).month_projection||{};
+  const tiles=[
+    ['an_period_cost',fmtCost(p.cost||0),t('an_trend')+': '+(change==null?'—':`${change>0?'+':''}${change.toFixed(1)}%`)],
+    ['an_period_tokens',fmtTok(p.total||0),`${fmtTok(p.input||0)} ${t('an_input').toLowerCase()} · ${fmtTok(p.output||0)} ${t('an_output').toLowerCase()}`],
+    ['an_period_requests',(p.requests||0).toLocaleString(LOCALE[LANG]||'en-US'),`${p.active_days||0} ${t('an_active_days').toLowerCase()}`],
+    ['an_active_days',String(p.active_days||0),`${p.calendar_days||0} ${t('an_calendar_days')}`],
+    ['an_avg_tokens_active',fmtTok(p.avg_tokens_per_active_day||0),t('an_tokens_per_request')+': '+fmtTok(economics.tokens_per_request||0)],
+    ['an_month_projection',fmtCost(forecast.cost||0),fmtTok(forecast.tokens||0)+' tok'],
+  ];
+  document.getElementById('analysis-kpis').innerHTML=tiles.map(([label,value,extra],i)=>
+    `<div class="card${i<2?' rise':''}"><div class="label">${esc(t(label))}</div><div class="value">${esc(value)}</div><div class="extra">${esc(extra)}</div></div>`).join('');
+  const values=[
+    ['an_cache_saved',fmtCost(economics.cache_savings_estimate||0)],
+    ['an_output_input',economics.output_input_ratio==null?'—':`${economics.output_input_ratio.toFixed(2)}×`],
+    ['an_tokens_per_request',fmtTok(economics.tokens_per_request||0)],
+    ['an_cost_per_1k',economics.cost_per_1k_output==null?'—':fmtCost(economics.cost_per_1k_output)],
+    ['an_trend',change==null?'—':`${change>0?'+':''}${change.toFixed(1)}%`],
+  ];
+  document.getElementById('analysis-economics').innerHTML=values.map(([label,value])=>
+    `<div class="insight-value"><span>${esc(t(label))}</span><b>${esc(value)}</b></div>`).join('');
+  const perf=analytics.performance||{},rows=[
+    ['an_request_tokens',perf.request_tokens,'tokens'],['an_input',perf.input,'tokens'],
+    ['an_output',perf.output,'tokens'],['an_ttft',perf.ttft_ms,'ms'],
+    ['an_latency',perf.total_ms,'ms'],['an_speed',perf.tok_per_s,'speed'],
+  ];
+  const fmtPercentile=(v,kind)=>v==null?'—':kind==='tokens'?fmtTok(v):kind==='speed'?fmtSpeed(v):`${Math.round(v)} ms`;
+  document.getElementById('analysis-sample').textContent=tf('an_sample',{n:perf.sample_size||0});
+  document.getElementById('analysis-percentiles').innerHTML=rows.map(([label,v,kind])=>
+    `<tr><td>${esc(t(label))}</td><td>${fmtPercentile(v&&v.p50,kind)}</td><td>${fmtPercentile(v&&v.p90,kind)}</td></tr>`).join('');
+  const models=analytics.models||[];
+  document.getElementById('analysis-models').innerHTML=models.slice(0,12).map(m=>
+    `<tr data-model="${esc(m.model)}"><td>${esc(m.model)}</td><td>${m.requests.toLocaleString(LOCALE[LANG]||'en-US')}</td><td>${fmtTok(m.tokens_per_request||0)}</td><td>${m.output_input_ratio==null?'—':m.output_input_ratio.toFixed(2)+'×'}</td><td>${fmtCost(m.cache_savings||0)}</td><td>${m.cost_per_1k_output==null?'—':fmtCost(m.cost_per_1k_output)}</td></tr>`).join('');
+  document.querySelectorAll('#analysis-models tr[data-model]').forEach(row=>row.onclick=()=>{
+    const select=document.getElementById('f-model');
+    navigateTo('requests');select.value=row.dataset.model;filt.model=select.value;renderFeed();
+  });
+}
+const analysisSeg=document.getElementById('seg-analysis');
+analysisSeg.addEventListener('click',e=>{
+  if(e.target.tagName!=='BUTTON')return;
+  [...analysisSeg.querySelectorAll('button')].forEach(b=>b.classList.toggle('on',b===e.target));
+  insightPeriod=e.target.dataset.v;segThumb(analysisSeg);drawInsights();
+});
+
 // ---------- settings panel fill ----------
 function fillSettings(d){
+  const themeSelect=document.getElementById('set-theme');
+  if(document.activeElement!==themeSelect)themeSelect.value=(d.settings&&d.settings.theme)||'system';
   if(document.activeElement!==document.getElementById('set-budget'))
     document.getElementById('set-budget').value=d.settings.daily_budget||'';
   const m=d.meta||{};
@@ -1435,6 +1639,7 @@ function fillSettings(d){
 function update(d){
   DATA=d;
   LANG=(d.settings&&d.settings.language)||'zh';
+  applyTheme((d.settings&&d.settings.theme)||'system');
   applyLang();
   const updated=document.getElementById('updated');
   updated.textContent=new Date(d.generated_at).toLocaleTimeString(LOCALE[LANG]||'zh-CN',
@@ -1447,8 +1652,8 @@ function update(d){
   const sel=document.getElementById('f-model'),cur=sel.value;
   sel.innerHTML=`<option value="">${esc(t('f_all_models'))}</option>`+
     d.by_model.map(m=>`<option ${m.model===cur?'selected':''}>${esc(m.model)}</option>`).join('');
-  filt.model=cur;renderFeed();fillSettings(d);
-  ['seg-tok','seg-cost','seg-mix','seg-hit'].forEach(id=>
+  filt.model=cur;renderFeed();fillSettings(d);drawInsights();
+  ['seg-tok','seg-cost','seg-mix','seg-hit','seg-analysis'].forEach(id=>
     segThumb(document.getElementById(id)));
   if(!started)started=true;
 }
