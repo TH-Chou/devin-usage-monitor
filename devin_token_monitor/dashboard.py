@@ -1523,6 +1523,9 @@ const KPI_DEFS=[
   {id:'cost',l:'k_cost',c:'slate'},{id:'all',l:'k_all'},
   {id:'req',l:'k_req'},{id:'hit',l:'k_hit'},
   {id:'spd',l:'k_spd'},{id:'top',l:'k_top'}];
+const dayOverDayDelta=(today,yesterday)=>
+  Number.isFinite(today)&&Number.isFinite(yesterday)&&yesterday>0
+    ? (today-yesterday)/yesterday*100 : null;
 let kpiInit=false;
 function kpis(d){
   const td=d.today,a=d.total,budget=d.settings&&d.settings.daily_budget;
@@ -1530,8 +1533,9 @@ function kpis(d){
   const speeds=d.requests.map(r=>r.tok_per_s).filter(v=>v!=null);
   const avgSpd=speeds.length?speeds.reduce((x,y)=>x+y,0)/speeds.length:0;
   const topM=d.by_model[0];
-  const yday=d.by_day[1];  // by_day is desc; index 1 = yesterday
-  const delta=yday&&yday.cost?( (t.cost-yday.cost)/yday.cost*100 ):null;
+  const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+  const yday=d.by_day.find(day=>day.day===dayKey(yesterday));
+  const delta=yday?dayOverDayDelta(td.cost||0,yday.cost||0):null;
   if(!kpiInit){
     document.getElementById('kpis').innerHTML=KPI_DEFS.map(k=>
       `<div class="card">

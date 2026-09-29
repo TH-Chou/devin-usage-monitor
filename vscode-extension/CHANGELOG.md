@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- Fix day-over-day cost change showing NaN when yesterday has zero or missing cost.
+- Compare against the actual local-calendar yesterday rather than the previous active day.
+
 ## 0.3.0
 
 - Recover aggregates when the local sessions database is replaced or truncated.

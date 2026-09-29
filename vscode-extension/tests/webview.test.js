@@ -1,11 +1,23 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
 const test = require('node:test');
 const { renderDashboard } = require('../webview');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'media', 'dashboard.html'), 'utf8');
+
+test('day-over-day KPI is finite for zero and missing prior-day values', () => {
+  const expression = source.match(/const dayOverDayDelta=([^;]+);/)[1];
+  const delta = vm.runInNewContext(expression);
+  assert.equal(delta(5, 10), -50);
+  assert.equal(delta(0, 10), -100);
+  assert.equal(delta(5, 0), null);
+  assert.equal(delta(Number.NaN, 10), null);
+  assert.match(source, /d\.by_day\.find\(day=>day\.day===dayKey\(yesterday\)\)/);
+  assert.match(source, /dayOverDayDelta\(td\.cost\|\|0,yday\.cost\|\|0\)/);
+});
 
 test('dashboard themes and token insights are included', () => {
   for (const theme of ['midnight', 'graphite', 'paper', 'ocean', 'forest']) {
