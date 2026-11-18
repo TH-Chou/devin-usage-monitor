@@ -1,7 +1,8 @@
 """Read-only access to the Devin CLI sessions database.
 
-Devin CLI stores every chat message as JSON in
-``~/.local/share/devin/cli/sessions.db`` (SQLite, WAL mode).  Assistant
+Devin CLI stores every chat message as JSON in a SQLite database (WAL mode):
+``%APPDATA%\\Devin\\cli\\sessions.db`` on Windows and
+``~/.local/share/devin/cli/sessions.db`` on POSIX systems.  Assistant
 messages that performed model inference carry per-request metrics under
 ``chat_message.metadata.metrics`` (input/output/cache token counts) and
 ``chat_message.metadata.generation_model``.
@@ -14,12 +15,28 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-DEFAULT_DB_PATH = Path.home() / ".local" / "share" / "devin" / "cli" / "sessions.db"
 ENV_DB_PATH = "DEVIN_SESSIONS_DB"
+_XDG_DB_PATH = Path.home() / ".local" / "share" / "devin" / "cli" / "sessions.db"
+
+
+def _default_db_candidates() -> list[Path]:
+    """Known Devin CLI database locations, most specific first.
+
+    Devin CLI follows XDG on POSIX but stores data under ``%APPDATA%\\Devin``
+    on Windows.  The XDG path stays in the list so junction/symlink
+    workarounds created for older releases keep working.
+    """
+    candidates = []
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+        candidates.append(Path(appdata) / "Devin" / "cli" / "sessions.db")
+    candidates.append(_XDG_DB_PATH)
+    return candidates
 
 _QUERY = """
 SELECT
@@ -49,7 +66,14 @@ ORDER BY mn.row_id
 
 
 def db_path() -> Path:
-    return Path(os.environ.get(ENV_DB_PATH, DEFAULT_DB_PATH)).expanduser()
+    override = os.environ.get(ENV_DB_PATH)
+    if override:
+        return Path(override).expanduser()
+    candidates = _default_db_candidates()
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
 
 
 def connect(path: Path | None = None) -> sqlite3.Connection:

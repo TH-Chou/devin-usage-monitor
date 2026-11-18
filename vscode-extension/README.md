@@ -13,7 +13,7 @@ A desktop VS Code extension that brings the Devin Token Monitor dashboard into V
 
 - VS Code 1.90 or later, or a compatible desktop VS Code-based IDE
 - Python 3.10+ available on the local machine
-- Devin CLI usage data at `~/.local/share/devin/cli/sessions.db`, or configure the database path
+- Devin CLI usage data at `%APPDATA%\Devin\cli\sessions.db` (Windows) or `~/.local/share/devin/cli/sessions.db` (macOS/Linux) — auto-detected; or configure the database path
 
 The extension runs as a **UI extension** so the Python worker accesses the local machine's Devin data even when the editor is connected to a remote workspace. Browser-only editors (`vscode.dev`, `github.dev`) are not supported because they cannot spawn the local Python worker or access a local SQLite file.
 
@@ -52,7 +52,7 @@ npm run package
 This stages the current shared Python modules, `prices.json`, and evaluated dashboard HTML into the extension package, then creates a `.vsix` file. To install locally:
 
 ```bash
-code --install-extension devin-token-monitor-0.3.4.vsix
+code --install-extension devin-token-monitor-0.3.5.vsix
 ```
 
 For development, open `vscode-extension` in VS Code, run `npm install`, then run the **Extension Development Host** launch configuration after staging with `npm run stage`.

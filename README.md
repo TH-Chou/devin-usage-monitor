@@ -35,7 +35,7 @@ no account, usage data stays on your machine.
 | **Editable pricing** | ~140 models with per-1M input/output/cache prices in `prices.json`; exact → prefix → family matching, reasoning-effort aware. |
 | **Budget alerts** | Optional `daily_budget` posts a macOS notification once per day. |
 | **CSV export** | Requests / sessions / daily / models via a native save panel, ⌘E, or the web API. |
-| **Six languages** | 中文 · English · 日本語 · 한국어 · Español · Tiếng Việt — persisted, applied to web view *and* native chrome. |
+| **Seven languages** | 中文 · English · Русский · 日本語 · 한국어 · Español · Tiếng Việt — persisted, applied to web view *and* native chrome. |
 | **Auto refresh** | Incremental `row_id` watermark polling (~15 s); launch-time full aggregation ≈ 0.3 s. |
 | **IDE extension** | VSIX for desktop VS Code and compatible IDEs: status-bar cost, dashboard Webview, database picker, price-table editing, and CSV export. |
 | **Six visual themes** | System, Midnight, Graphite, Warm Paper, Deep Ocean, and Forest palettes; choice persists across app sessions. |
@@ -50,7 +50,8 @@ drag the app into `Applications`, and launch.
 It's unsigned — on first launch use right-click → **Open**.
 
 > **Requirements:** macOS 12+, and local Devin CLI data at
-> `~/.local/share/devin/cli/sessions.db` (present once you've used Devin).
+> `~/.local/share/devin/cli/sessions.db` on macOS/Linux or
+> `%APPDATA%\Devin\cli\sessions.db` on Windows (present once you've used Devin).
 
 ## VS Code-compatible IDEs
 
@@ -60,7 +61,7 @@ Build and install the VSIX from source:
 cd vscode-extension
 npm install
 npm run package
-code --install-extension devin-token-monitor-0.3.4.vsix
+code --install-extension devin-token-monitor-0.3.5.vsix
 ```
 
 Then run **Devin Token Monitor: Open Dashboard** from the Command Palette. Requires Python 3.10+ on the local machine. Cursor supports VSIX-compatible extensions; Windsurf and other forks may vary by version and extension-install policy. Browser-only VS Code (`vscode.dev` / `github.dev`) is not supported because it cannot spawn the local Python worker or access the local SQLite database. See [`vscode-extension/README.md`](vscode-extension/README.md) and [the compatibility research](vscode-extension/RESEARCH.md).
@@ -81,7 +82,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ## How it works
 
 Devin CLI persists every session message as JSON in
-`~/.local/share/devin/cli/sessions.db` (SQLite, WAL). Assistant reasoning
+`~/.local/share/devin/cli/sessions.db` (macOS/Linux) or
+`%APPDATA%\Devin\cli\sessions.db` (Windows) — SQLite, WAL. Assistant reasoning
 messages carry `metadata.metrics` — `input_tokens`, `output_tokens`,
 `cache_read_tokens`, `cache_creation_tokens`, `generation_model`,
 `request_id`, timestamps. The monitor opens the DB **read-only**, polls on an
@@ -107,7 +109,7 @@ enables alerts; `settings.language` and `settings.theme` persist UI preferences.
 
 | Env var | Purpose | Default |
 |---|---|---|
-| `DEVIN_SESSIONS_DB` | Override DB path | `~/.local/share/devin/cli/sessions.db` |
+| `DEVIN_SESSIONS_DB` | Override DB path | `%APPDATA%\Devin\cli\sessions.db` (Windows), `~/.local/share/devin/cli/sessions.db` (POSIX) |
 | `DTM_PORT` / `DTM_HOST` | Web dashboard bind (menu-bar mode) | `7878` / `127.0.0.1` |
 | `DTM_PRICES` | Override `prices.json` path | auto |
 

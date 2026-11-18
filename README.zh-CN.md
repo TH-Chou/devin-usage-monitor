@@ -34,7 +34,7 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 | **可编辑价格表** | `prices.json` 内置约 140 个模型的每 1M input/output/cache 单价；精确 → 前缀 → 族名匹配，支持 reasoning-effort 后缀。 |
 | **预算告警** | 可选 `daily_budget`，超预算时每天一次 macOS 通知。 |
 | **CSV 导出** | requests / sessions / daily / models，原生保存面板、⌘E 或 Web API。 |
-| **六种语言** | 中文 · English · 日本語 · 한국어 · Español · Tiếng Việt —— 持久化保存，页面与原生界面同时生效。 |
+| **七种语言** | 中文 · English · Русский · 日本語 · 한국어 · Español · Tiếng Việt —— 持久化保存，页面与原生界面同时生效。 |
 | **自动刷新** | `row_id` 水位线增量轮询（约 15s）；启动时全量聚合约 0.3s。 |
 | **IDE 扩展** | 面向桌面版 VS Code 和兼容 IDE 的 VSIX：状态栏费用、仪表盘 Webview、数据库选择、价格表编辑与 CSV 导出。 |
 | **六套主题** | 跟随系统、午夜蓝、石墨、暖纸、深海、森林；选择会持久化。 |
@@ -58,7 +58,7 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 cd vscode-extension
 npm install
 npm run package
-code --install-extension devin-token-monitor-0.3.4.vsix
+code --install-extension devin-token-monitor-0.3.5.vsix
 ```
 
 随后在命令面板运行 **Devin Token Monitor: Open Dashboard**。要求本机 Python 3.10+。Cursor 支持 VSIX 兼容扩展；Windsurf 和其他分支版本的兼容性取决于其当前 VS Code API 与扩展安装策略。浏览器版 VS Code（`vscode.dev` / `github.dev`）不支持，因为它不能启动本机 Python worker 或访问本地 SQLite 数据库。详见 [`vscode-extension/README.md`](vscode-extension/README.md) 和[兼容性调研](vscode-extension/RESEARCH.md)。
@@ -79,7 +79,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ## 工作原理
 
 Devin CLI 将每条会话消息以 JSON 存入
-`~/.local/share/devin/cli/sessions.db`（SQLite，WAL）。assistant 推理消息
+macOS/Linux 使用 `~/.local/share/devin/cli/sessions.db`，Windows 使用
+`%APPDATA%\Devin\cli\sessions.db`（SQLite，WAL）。assistant 推理消息
 的 `metadata.metrics` 包含 `input_tokens`、`output_tokens`、
 `cache_read_tokens`、`cache_creation_tokens`、`generation_model`、
 `request_id` 和时间戳。监控器以**只读**方式打开数据库，按 `row_id`
@@ -102,7 +103,7 @@ App 包内资源。`settings.daily_budget` 开启预算告警；`settings.langua
 
 | 环境变量 | 作用 | 默认 |
 |---|---|---|
-| `DEVIN_SESSIONS_DB` | 覆盖数据库路径 | `~/.local/share/devin/cli/sessions.db` |
+| `DEVIN_SESSIONS_DB` | 覆盖数据库路径 | Windows：`%APPDATA%\Devin\cli\sessions.db`；macOS/Linux：`~/.local/share/devin/cli/sessions.db` |
 | `DTM_PORT` / `DTM_HOST` | Web 仪表盘绑定（菜单栏模式） | `7878` / `127.0.0.1` |
 | `DTM_PRICES` | 覆盖 `prices.json` 路径 | 自动探测 |
 

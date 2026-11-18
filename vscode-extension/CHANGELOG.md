@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.5
+
+- Resolve the default sessions.db location per platform: `%APPDATA%\Devin\cli\sessions.db` on Windows, `~/.local/share/devin/cli/sessions.db` on POSIX, with the XDG path kept as a fallback for junction-based setups.
+- Make the test suite pass on Windows: drop the `?` from test database filenames (illegal on win32) and close read-only connections explicitly so temp cleanup can unlink the files.
+- Document the platform-specific default database locations.
+
 ## 0.3.4
 
 - Add a complete Russian dashboard locale, Russian weekday labels, and Russian native-shell labels.

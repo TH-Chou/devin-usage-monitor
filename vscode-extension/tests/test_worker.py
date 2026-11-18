@@ -197,12 +197,15 @@ def make_usage_db(path, row_id, request_id, input_tokens):
 class DataReliabilityTests(unittest.TestCase):
     def test_read_only_db_with_reserved_uri_characters(self):
         with tempfile.TemporaryDirectory() as temp:
-            path = Path(temp) / "sessions #?.db"
+            path = Path(temp) / "sessions #.db"
             make_usage_db(path, 1, "r1", 8)
-            with connect(path) as connection:
+            connection = connect(path)
+            try:
                 self.assertEqual(connection.execute("SELECT count(*) FROM message_nodes").fetchone()[0], 1)
                 with self.assertRaises(sqlite3.OperationalError):
                     connection.execute("INSERT INTO sessions(id) VALUES ('new')")
+            finally:
+                connection.close()
 
     def test_missing_request_id_cannot_match_another_reply(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -220,9 +223,12 @@ class DataReliabilityTests(unittest.TestCase):
             )
             connection.commit()
             connection.close()
-            with connect(path) as readonly:
+            readonly = connect(path)
+            try:
                 self.assertEqual(fetch_message_body(readonly, "", "target"), "correct")
                 self.assertEqual(fetch_message_body(readonly, "", ""), "")
+            finally:
+                readonly.close()
 
     def test_database_replacement_and_truncation_rebuild_totals(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -304,7 +310,7 @@ class DataReliabilityTests(unittest.TestCase):
     def test_web_health_and_theme_settings_api(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            database = root / "sessions #?.db"
+            database = root / "sessions #.db"
             prices = root / "prices.json"
             make_usage_db(database, 1, "r1", 8)
             prices.write_text(json.dumps({"default": {}, "models": {}, "settings": {}}), encoding="utf-8")
@@ -339,6 +345,37 @@ class DataReliabilityTests(unittest.TestCase):
                 finally:
                     server.shutdown()
                     server.server_close()
+
+
+class DbPathResolutionTests(unittest.TestCase):
+    def test_windows_candidates_prefer_appdata_and_keep_xdg_fallback(self):
+        import devin_token_monitor.db as db
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            appdata_db = root / "Roaming" / "Devin" / "cli" / "sessions.db"
+            xdg_db = root / "xdg" / "sessions.db"
+            with patch.object(sys, "platform", "win32"), \
+                 patch.object(db, "_XDG_DB_PATH", xdg_db), \
+                 patch.dict(os.environ, {"APPDATA": str(root / "Roaming"),
+                                         "DEVIN_SESSIONS_DB": ""}):
+                self.assertEqual(db.db_path(), appdata_db)
+                xdg_db.parent.mkdir(parents=True)
+                xdg_db.touch()
+                self.assertEqual(db.db_path(), xdg_db)
+                appdata_db.parent.mkdir(parents=True)
+                appdata_db.touch()
+                self.assertEqual(db.db_path(), appdata_db)
+                with patch.dict(os.environ, {"DEVIN_SESSIONS_DB": str(xdg_db)}):
+                    self.assertEqual(db.db_path(), xdg_db)
+
+    def test_windows_uses_roaming_appdata_when_environment_variable_is_empty(self):
+        import devin_token_monitor.db as db
+        with tempfile.TemporaryDirectory() as temp:
+            with patch.object(sys, "platform", "win32"), \
+                 patch.object(db, "_XDG_DB_PATH", Path(temp) / "missing" / "sessions.db"), \
+                 patch.dict(os.environ, {"APPDATA": "", "DEVIN_SESSIONS_DB": ""}):
+                expected = Path.home() / "AppData" / "Roaming" / "Devin" / "cli" / "sessions.db"
+                self.assertEqual(db.db_path(), expected)
 
 
 if __name__ == "__main__":
