@@ -80,6 +80,11 @@ def main() -> int:
     if sys.version_info < (3, 10):
         print("Python 3.10 or newer is required.", file=sys.stderr, flush=True)
         return 2
+    # Node's readline stream decodes child-process stdout as UTF-8. Windows
+    # otherwise uses the active console code page for redirected stdio.
+    sys.stdin.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     for line in sys.stdin:
         request = {}
         try:

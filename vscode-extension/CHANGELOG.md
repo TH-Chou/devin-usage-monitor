@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.3
+
+- Force Python worker standard streams to UTF-8 so non-ASCII session titles display correctly on Windows.
+- Add current GPT-6.2, Claude 5.2/5.5, and Gemini 4 model rates to the bundled price table.
+
 ## 0.3.1
 
 - Fix day-over-day cost change showing NaN when yesterday has zero or missing cost.

@@ -62,7 +62,7 @@ class WorkerProtocolTests(unittest.TestCase):
             """)
             connection.execute(
                 "INSERT INTO sessions VALUES (?, ?, ?, ?)",
-                ("session-1", "Worker Test", temp, "test-model"),
+                ("session-1", "Тестовая сессия — résumé", temp, "test-model"),
             )
             now = datetime.now(timezone.utc)
             message = {
@@ -93,6 +93,7 @@ class WorkerProtocolTests(unittest.TestCase):
             env = os.environ.copy()
             env["DEVIN_SESSIONS_DB"] = str(database)
             env["DTM_PRICES"] = str(prices)
+            env["PYTHONIOENCODING"] = "cp1251"
             requests = [
                 {"id": 1, "action": "initialize"},
                 {"id": 2, "action": "body", "request_id": "request-1", "message_id": "message-1"},
@@ -104,7 +105,7 @@ class WorkerProtocolTests(unittest.TestCase):
                 [sys.executable, str(WORKER)],
                 input="".join(json.dumps(item) + "\n" for item in requests),
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
                 env=env,
                 check=True,
             )
@@ -114,6 +115,7 @@ class WorkerProtocolTests(unittest.TestCase):
             snapshot = responses[0]["result"]["snapshot"]
             self.assertEqual(snapshot["total"]["requests"], 1)
             self.assertEqual(snapshot["total"]["input"], 1000000)
+            self.assertEqual(snapshot["sessions"][0]["title"], "Тестовая сессия — résumé")
             self.assertEqual(snapshot["settings"]["language"], "en")
             self.assertEqual(snapshot["settings"]["theme"], "system")
             analytics = snapshot["analytics"]
@@ -138,6 +140,26 @@ class WorkerProtocolTests(unittest.TestCase):
             self.assertEqual(summary["settings"]["theme"], "ocean")
             self.assertNotIn("requests", summary)
             self.assertNotIn("snapshot", responses[4]["result"])
+
+
+class CurrentModelPriceTests(unittest.TestCase):
+    def test_latest_model_ids_use_official_standard_rates(self):
+        table = pricing.PriceTable.load(EXTENSION_ROOT.parent / "prices.json")
+        expected = {
+            "gpt-6.2-astra": (8.0, 40.0),
+            "gpt-6.2-sol": (2.0, 10.0),
+            "claude-fable-5-2": (8.0, 40.0),
+            "claude-opus-5-5": (4.0, 20.0),
+            "claude-sonnet-5-5": (2.0, 10.0),
+            "claude-haiku-5-5": (0.1, 0.5),
+            "gemini-4-carbon": (2.0, 10.0),
+            "gemini-4-argon": (2.0, 10.0),
+            "gemini-4-hydrogen": (1.5, 7.5),
+        }
+        for model, rates in expected.items():
+            with self.subTest(model=model):
+                price = table.price_for(model)
+                self.assertEqual((price.input, price.output), rates)
 
 
 def make_usage_db(path, row_id, request_id, input_tokens):
