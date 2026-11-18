@@ -8,6 +8,17 @@ const { renderDashboard } = require('../webview');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'media', 'dashboard.html'), 'utf8');
 
+function readLocaleTables() {
+  const start = source.indexOf('const LOCALE=');
+  const end = source.indexOf('const t=k=>', start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const code = `${source.slice(start, end)}\nglobalThis.localeTables = { LOCALE, OFFLINE_LABEL, I18N, EXTRA_I18N, DOWSL };`;
+  const context = {};
+  vm.runInNewContext(code, context);
+  return context.localeTables;
+}
+
 test('day-over-day KPI is finite for zero and missing prior-day values', () => {
   const expression = source.match(/const dayOverDayDelta=([^;]+);/)[1];
   const delta = vm.runInNewContext(expression);
@@ -28,6 +39,23 @@ test('dashboard themes and token insights are included', () => {
   assert.match(source, /id="analysis-percentiles"/);
   assert.match(source, /\.view#v-insights #analysis-kpis\{margin-bottom:20px\}/);
   assert.match(source, /month_projection/);
+});
+
+test('Russian dashboard locale covers all labels and placeholders', () => {
+  const { LOCALE, OFFLINE_LABEL, I18N, EXTRA_I18N, DOWSL } = readLocaleTables();
+  assert.equal(LOCALE.ru, 'ru-RU');
+  assert.ok(OFFLINE_LABEL.ru);
+  assert.deepEqual(Array.from(DOWSL.ru), ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']);
+  assert.match(source, /data-lang="ru">Русский</);
+
+  const english = { ...I18N.en, ...EXTRA_I18N.en };
+  const russian = { ...I18N.ru, ...EXTRA_I18N.ru };
+  for (const [key, text] of Object.entries(english)) {
+    assert.equal(typeof russian[key], 'string', `missing Russian translation: ${key}`);
+    assert.notEqual(russian[key].trim(), '', `empty Russian translation: ${key}`);
+    const placeholders = value => (value.match(/\{[a-z]+\}/gi) || []).sort();
+    assert.deepEqual(placeholders(russian[key]), placeholders(text), `placeholder mismatch: ${key}`);
+  }
 });
 
 test('model drilldown and source health remain visible', () => {

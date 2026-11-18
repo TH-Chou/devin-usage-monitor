@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.4
+
+- Add a complete Russian dashboard locale, Russian weekday labels, and Russian native-shell labels.
+- Allow the Russian language preference to be saved and restored.
+
 ## 0.3.3
 
 - Force Python worker standard streams to UTF-8 so non-ASCII session titles display correctly on Windows.

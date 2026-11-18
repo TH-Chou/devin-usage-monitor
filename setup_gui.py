@@ -15,8 +15,8 @@ setup(
                 "CFBundleName": "Devin Token Monitor",
                 "CFBundleDisplayName": "Devin Token Monitor",
                 "CFBundleIdentifier": "com.local.devin-token-monitor",
-                "CFBundleShortVersionString": "0.3.3",
-                "CFBundleVersion": "0.3.3",
+                "CFBundleShortVersionString": "0.3.4",
+                "CFBundleVersion": "0.3.4",
                 "LSMinimumSystemVersion": "12.0",
             },
         }

@@ -209,12 +209,27 @@ _L = {
         "alert_msg": "Chi phí hôm nay {c} đã vượt ngân sách ngày {b}",
         "save_title": "Xuất dữ liệu sử dụng",
     },
+    "ru": {
+        "nav_overview": "Обзор", "nav_models": "Модели", "nav_sessions": "Сессии",
+        "nav_requests": "Запросы", "nav_settings": "Настройки", "logo_sub": "Использование и расходы",
+        "side_cost": "Расходы сегодня (оценка)", "side_loading": "Загрузка локальных данных…",
+        "side_reqs": "{n} запросов · локальный монитор",
+        "stat_today": "Сегодня {v} · запросов: {n}",
+        "menu_show": "Открыть панель", "menu_quit": "Выйти", "menu_refresh": "Обновить",
+        "menu_export": "Экспортировать CSV…", "menu_prices": "Изменить prices.json",
+        "menu_login": "Запускать при входе", "menu_quitapp": "Выйти из Devin Token Monitor",
+        "tip_refresh": "Обновить", "tip_export": "Экспортировать CSV", "sel_on": "выбрано",
+        "alert_suffix": "— ⚠ превышен лимит",
+        "alert_msg": "Расходы сегодня {c} превысили дневной лимит {b}",
+        "save_title": "Экспорт данных об использовании",
+    },
 }
 _NAV_KEYS = ("nav_overview", "nav_insights", "nav_models", "nav_sessions", "nav_requests", "nav_settings")
 _NATIVE_EXTRA = {
     "zh": {"nav_insights": "分析"}, "en": {"nav_insights": "Insights"},
     "ja": {"nav_insights": "分析"}, "ko": {"nav_insights": "분석"},
     "es": {"nav_insights": "Análisis"}, "vi": {"nav_insights": "Phân tích"},
+    "ru": {"nav_insights": "Аналитика"},
 }
 
 

@@ -278,12 +278,15 @@ class DataReliabilityTests(unittest.TestCase):
                  patch.object(pricing, "_USER_FILE", user), \
                  patch.object(pricing, "_BUNDLED_FILE", bundled), \
                  patch.object(pricing, "_PROJECT_FILE", bundled):
+                saved = pricing.PriceTable.load().update_settings({"language": "ru"})
+                self.assertEqual(saved, user)
+                self.assertEqual(pricing.PriceTable.load().language, "ru")
                 saved = pricing.PriceTable.load().update_settings({"theme": "forest"})
                 self.assertEqual(saved, user)
                 self.assertEqual(json.loads(bundled.read_text(encoding="utf-8")), seed)
                 raw = json.loads(user.read_text(encoding="utf-8"))
                 self.assertEqual(raw["models"], seed["models"])
-                self.assertEqual(raw["settings"], {"language": "en", "theme": "forest"})
+                self.assertEqual(raw["settings"], {"language": "ru", "theme": "forest"})
                 with self.assertRaises(ValueError):
                     pricing.PriceTable.load().update_settings({"daily_budget": float("nan")})
                 with self.assertRaises(ValueError):
