@@ -25,6 +25,8 @@ After installation, run **Devin Token Monitor: Open Dashboard** from the Command
 
 ### Explore usage
 
+In **Overview**, use the arrow keys on a trend chart to inspect individual intervals. The model cost ranking includes every model and opens the filtered request list when selected.
+
 In **Insights**, choose a date range and optionally a model. The totals, token breakdown, daily chart, model costs and ten highest-cost sessions all use that selection. Totals cover the full local database after duplicate request IDs have been removed. The reference section below the report retains the rolling summaries, forecast and performance samples.
 
 **Requests** searches session titles, model names and IDs across the latest 5,000 requests. Use the page controls to browse 50 at a time, or sort by time, cost, token count or duration. Open a row to see cache writes, latency and the reply. The CSV archive retains the snapshot limits for request and session details.
@@ -59,7 +61,7 @@ npm run package
 This stages the current shared Python modules, `prices.json`, and evaluated dashboard HTML into the extension package, then creates a `.vsix` file. To install locally:
 
 ```bash
-code --install-extension devin-token-monitor-0.4.3.vsix
+code --install-extension devin-token-monitor-0.4.4.vsix
 ```
 
 For development, open `vscode-extension` in VS Code, run `npm install`, then run the **Extension Development Host** launch configuration after staging with `npm run stage`.

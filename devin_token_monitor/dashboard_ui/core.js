@@ -11,7 +11,7 @@ window.onerror=function(m,s,l){ if(native_)native_.postMessage(
 // window dragging: mousedown on non-interactive chrome asks the native
 // side to start an NSWindow drag with the current event
 const DRAG_SKIP='a,button,input,select,label,svg,th,td,.seg,.chip,'+
-  '.filters,.legend,.donut-legend,.overlay,.drawer,.switch';
+  '.filters,.legend,.model-cost-list,.overlay,.drawer,.switch';
 document.addEventListener('mousedown',e=>{
   if(!native_||window.__DTM_VSCODE__||e.button!==0)return;
   if(e.target.closest(DRAG_SKIP))return;
@@ -23,8 +23,16 @@ document.addEventListener('mousedown',e=>{
 const fmtTok=n=>{if(n>=1e9)return(n/1e9).toFixed(2)+'B';
   if(n>=1e6)return(n/1e6).toFixed(2)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'k';
   return ''+Math.round(n);};
-const fmtCost=c=>'$'+(c>=1?c.toLocaleString('en-US',{minimumFractionDigits:2,
-  maximumFractionDigits:2}):c.toFixed(4));
+function fmtCost(cost){
+  if(!Number.isFinite(cost))return '—';
+  if(cost===0)return '$0.00';
+  const amount=Math.abs(cost);
+  const digits=amount>=1?2:Math.max(4,1-Math.floor(Math.log10(amount)));
+  if(digits>12)return (cost<0?'−$':'$')+amount.toExponential(1);
+  return (cost<0?'−$':'$')+amount.toLocaleString('en-US',{
+    minimumFractionDigits:digits,maximumFractionDigits:digits
+  });
+}
 const fmtPrice=p=>p>=1?('$'+p.toFixed(2)):(p>=0.01?('$'+p.toFixed(3)):('$'+p));
 const fmtSpeed=v=>v==null?'—':v>=1000?(v/1000).toFixed(1)+'k/s':Math.round(v)+'/s';
 const esc=s=>{const d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML.replaceAll('"','&quot;').replaceAll("'","&#39;");};

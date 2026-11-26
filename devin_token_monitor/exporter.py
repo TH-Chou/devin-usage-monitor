@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import zipfile
 
 _KINDS = ("requests", "sessions", "daily", "models")
 
@@ -27,13 +28,13 @@ def export_csv(snapshot: dict, what: str) -> str:
     elif what == "sessions":
         w.writerow(
             ["last_activity", "title", "directory", "models", "requests",
-             "input", "output", "cache_read", "total", "cost_usd"]
+             "input", "output", "cache_read", "total", "cost_usd", "cache_creation"]
         )
         for s in snapshot.get("sessions", []):
             w.writerow(
                 [s["last_ts"], s["title"], s["dir"], " ".join(s["models"]),
                  s["requests"], s["input"], s["output"], s["cache_read"],
-                 s["total"], s["cost"]]
+                 s["total"], s["cost"], s.get("cache_creation", 0)]
             )
     elif what == "daily":
         w.writerow(
@@ -49,14 +50,14 @@ def export_csv(snapshot: dict, what: str) -> str:
         w.writerow(
             ["model", "price_in", "price_out", "price_cache_read",
              "price_cache_creation", "requests", "input", "output",
-             "cache_read", "total", "cost_usd"]
+             "cache_read", "total", "cost_usd", "cache_creation"]
         )
         for m in snapshot.get("by_model", []):
             p = m["price"]
             w.writerow(
                 [m["model"], p["input"], p["output"], p["cache_read"],
                  p["cache_creation"], m["requests"], m["input"], m["output"],
-                 m["cache_read"], m["total"], m["cost"]]
+                 m["cache_read"], m["total"], m["cost"], m.get("cache_creation", 0)]
             )
     else:
         raise ValueError(f"unknown export kind: {what!r} (one of {_KINDS})")
@@ -65,3 +66,11 @@ def export_csv(snapshot: dict, what: str) -> str:
 
 def export_all(snapshot: dict) -> dict[str, str]:
     return {k: export_csv(snapshot, k) for k in _KINDS}
+
+
+def export_zip(snapshot: dict) -> bytes:
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as archive:
+        for kind, contents in export_all(snapshot).items():
+            archive.writestr(f"{kind}.csv", contents)
+    return stream.getvalue()

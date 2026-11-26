@@ -95,6 +95,7 @@ function closeSession(restoreFocus=true){
     (trigger||document.getElementById('view-title')).focus({preventScroll:true});
   }
   drawerTrigger=null;
+  document.getElementById('drawer-body').replaceChildren();
 }
 document.getElementById('overlay').addEventListener('click',e=>{
   if(e.target===e.currentTarget)closeSession();});
@@ -105,9 +106,16 @@ const filt={model:'',q:'',date:'',day:'',sort:'newest'};
 const pageSize=50;
 let feedPage=0;
 let previousFeed=null;
-function setModelFilter(m){
-  feedPage=0;filt.model=m;document.getElementById('f-model').value=m;
-  navigateTo('requests');renderFeed();}
+let previousFeedScope=null;
+function setModelFilter(m,sessionQuery=''){
+  feedPage=0;
+  Object.assign(filt,{model:m,q:sessionQuery.trim().toLowerCase(),date:'',day:''});
+  document.getElementById('f-model').value=m;
+  document.getElementById('f-session').value=sessionQuery;
+  document.getElementById('f-date').value='';
+  document.querySelectorAll('[data-day]').forEach(chip=>setPressed(chip,chip.dataset.day===''));
+  navigateTo('requests');
+}
 const reqDay=r=>r.ts.slice(0,10);
 function filteredReqs(){
   const now=new Date(),today=dayKey(now);
@@ -142,23 +150,34 @@ function toggleReq(tr,r,cols){
   row.innerHTML=`<td colspan="${cols}"><div class="request-meta">${meta.map(([k,v])=>
     `<span><b>${esc(k)}</b> ${esc(v)}</span>`).join(' · ')}</div><pre>${t('loading')}</pre></td>`;
   tr.after(row);
+  const pre=row.querySelector('pre');
+  if(!rid){pre.textContent=t('nobody');return;}
   if(native_)native_.postMessage({action:'getBody',rid:r.request_id||'',mid:r.message_id||''});
   else fetch('/api/body?rid='+encodeURIComponent(r.request_id||'')+
              '&mid='+encodeURIComponent(r.message_id||''))
-        .then(x=>x.json()).then(d=>showBody(rid,d.body||''))
-        .catch(()=>showBody(rid,''));
+        .then(async response=>{
+          const data=await response.json();
+          if(!response.ok)throw Error(data.error||response.statusText);
+          pre.textContent=data.body?.trim()?data.body:t('nobody');
+        }).catch(error=>{pre.textContent=error.message;});
 }
 function showBody(rid,text){
+  setBodyText(rid,text?.trim()?text:t('nobody'));
+}
+function showBodyError(rid,error){
+  setBodyText(rid,error);
+}
+function setBodyText(rid,text){
   document.querySelectorAll('.reqbody').forEach(row=>{
-    if(row.dataset.rid===rid)
-      row.querySelector('pre').textContent=
-        (text||'').trim()||t('nobody');
+    if(row.dataset.rid===rid)row.querySelector('pre').textContent=text;
   });
 }
 function bindReqRows(sel,rows,cols){
   document.querySelectorAll(sel+' tr.clickable').forEach(tr=>{
     tr.tabIndex=0;
-    tr.onclick=()=>toggleReq(tr,rows[+tr.dataset.i],cols);
+    const request=rows[Number(tr.dataset.i)];
+    tr.dataset.requestKey=JSON.stringify([request.session_id,request.request_id,request.message_id,request.ts]);
+    tr.onclick=()=>toggleReq(tr,request,cols);
     tr.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tr.click();}};
   });
 }
@@ -172,10 +191,17 @@ function renderFeed(){
     tf('log_sample',{n:DATA.requests.length,m:DATA.total.requests}):'');
   document.getElementById('f-prev').disabled=feedPage===0;
   document.getElementById('f-next').disabled=offset+pageSize>=rows.length;
-  const signature=JSON.stringify([LANG,shown]);
-  if(previousFeed===signature)return;
-  previousFeed=signature;
-  document.getElementById('t-recent').innerHTML=shown.map((r,i)=>{
+  const scope=JSON.stringify([LANG,DATA?.meta?.db_path]);
+  const signature=JSON.stringify(shown);
+  if(previousFeedScope===scope&&previousFeed===signature)return;
+  const tbody=document.getElementById('t-recent'),expanded=new Map();
+  if(previousFeedScope===scope){
+    for(const detail of tbody.querySelectorAll('tr.reqbody')){
+      expanded.set(detail.previousElementSibling.dataset.requestKey,detail);
+    }
+  }
+  previousFeedScope=scope;previousFeed=signature;
+  tbody.innerHTML=shown.map((r,i)=>{
     const col=donutColors[r.model]||'var(--slate)';
     return `<tr class="clickable" data-i="${i}"><td class="l fade">${r.ts.slice(5,19)}</td>
      <td class="l model"><span class="dot" style="background:${col}"></span>${esc(r.model)}</td>
@@ -185,6 +211,10 @@ function renderFeed(){
      <td class="reqcost">${fmtCost(r.cost||0)}</td></tr>`;}).join('')
     ||`<tr><td colspan="8" class="empty" style="text-align:center;padding:22px">${t('f_empty')}</td></tr>`;
   bindReqRows('#t-recent',shown,8);
+  for(const tr of tbody.querySelectorAll('tr.clickable')){
+    const detail=expanded.get(tr.dataset.requestKey);
+    if(detail){tr.classList.add('exp');tr.after(detail);}
+  }
 }
 document.getElementById('f-prev').onclick=()=>{feedPage=Math.max(0,feedPage-1);renderFeed();};
 document.getElementById('f-next').onclick=()=>{feedPage++;renderFeed();};

@@ -29,7 +29,7 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 | | |
 |---|---|
 | **菜单栏实时费用** | 状态栏直接显示今日估算费用，点开看摘要；关窗不退出，菜单或 Dock 随时重开。 |
-| **用量仪表盘** | 原生 `NSWindow` + `WKWebView`（无 HTTP 服务）：KPI 卡片、token/费用趋势（近 24h / 14 天）、模型环形图、token 构成、缓存命中率、星期×小时热力图、会话成本排行、成本/速度散点图。 |
+| **用量仪表盘** | 原生 `NSWindow` + `WKWebView`（无 HTTP 服务）：KPI 卡片、token/费用趋势（近 24h / 14 天）、模型费用占比排行、token 构成、缓存命中率、星期×小时热力图、会话成本排行、成本/速度散点图。 |
 | **单请求明细** | 模型、延迟、TTFT、tokens/s、单次费用——点任意模型/会话/请求下钻；响应体懒加载，快照保持轻量。 |
 | **可编辑价格表** | `prices.json` 内置约 140 个模型的每 1M input/output/cache 单价；精确 → 前缀 → 族名匹配，支持 reasoning-effort 后缀。 |
 | **预算告警** | 可选 `daily_budget`，超预算时每天一次 macOS 通知。 |
@@ -58,7 +58,7 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 cd vscode-extension
 npm install
 npm run package
-code --install-extension devin-token-monitor-0.4.3.vsix
+code --install-extension devin-token-monitor-0.4.4.vsix
 ```
 
 随后在命令面板运行 **Devin Token Monitor: Open Dashboard**。要求本机 Python 3.10+。Cursor 支持 VSIX 兼容扩展；Windsurf 和其他分支版本的兼容性取决于其当前 VS Code API 与扩展安装策略。浏览器版 VS Code（`vscode.dev` / `github.dev`）不支持，因为它不能启动本机 Python worker 或访问本地 SQLite 数据库。详见 [`vscode-extension/README.md`](vscode-extension/README.md) 和[兼容性调研](vscode-extension/RESEARCH.md)。

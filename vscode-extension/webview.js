@@ -7,7 +7,12 @@ window.addEventListener('message', event => {
   const message = event.data || {};
   if (message.type === 'snapshot' && typeof window.update === 'function') window.update(message.snapshot);
   else if (message.type === 'usageReport') window.showUsageReport(message.queryId, message.report, message.error);
-  else if (message.type === 'body' && typeof window.showBody === 'function') window.showBody(message.rid, message.body || '');
+  else if (message.type === 'body' && typeof window.showBody === 'function') {
+    if (message.error) window.showBodyError(message.rid, message.error);
+    else window.showBody(message.rid, message.body || '');
+  }
+  else if (message.type === 'budgetSaved') window.showBudgetSaved(message.value);
+  else if (message.type === 'sourceError') window.setSourceHealth(message.message);
   else if (message.type === 'error' && typeof window.toast === 'function') window.toast(message.message);
   else if (message.type === 'loginItem') {
     const control = document.getElementById('set-login');

@@ -9,6 +9,7 @@ second, so correctness never depends on persisted state.
 from __future__ import annotations
 
 import calendar
+import math
 import threading
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
@@ -26,6 +27,11 @@ from .db import (
 from .pricing import PriceTable
 
 RECENT_LIMIT = 5000  # deduped request rows kept for the frontend
+
+
+def _usd(value: float) -> float:
+    """Keep sub-cent estimates in API/CSV data at any configured token price."""
+    return float(format(value, ".15g"))
 
 
 @dataclass
@@ -149,7 +155,8 @@ class UsageAggregator:
         # copies) — same request/message id, same metrics. Dedupe so each
         # inference request counts once.
         self._seen: set[str] = set()
-        self._db_identity: tuple[int, int] | None = None
+        self._db_identity: tuple[str, int, int] | None = None
+        self._last_db_row: UsageRow | None = None
 
     @property
     def prices(self) -> PriceTable:
@@ -163,6 +170,7 @@ class UsageAggregator:
 
     def _reset_usage(self) -> None:
         self.watermark = 0
+        self._last_db_row = None
         self.total = UsageStats()
         self.by_model.clear()
         self.by_day.clear()
@@ -238,30 +246,45 @@ class UsageAggregator:
             self._report_revision = uuid4().hex
         return n
 
-    def poll(self) -> int:
-        """Fold new rows into the aggregates. Returns rows ingested."""
+    def poll(self, *, rebuild: bool = False) -> int:
+        """Fold new rows into the aggregates, or reread history on manual refresh."""
         with self.lock:
             conn = None
             try:
-                conn = connect()
-                stat = db_path().stat()
-                identity = (stat.st_dev, stat.st_ino)
-                maximum = conn.execute(
-                    "SELECT COALESCE(MAX(row_id), 0) FROM message_nodes"
-                ).fetchone()[0]
-                if self._db_identity is not None and (
-                    identity != self._db_identity or maximum < self.watermark
-                ):
+                path = db_path()
+                self.meta["db_path"] = str(path)
+                if self._db_identity and self._db_identity[0] != str(path):
+                    self._reset_usage()
+                    self._db_identity = None
+                    self.meta.pop("poll_last_ok", None)
+                conn = connect(path)
+                stat = path.stat()
+                identity = (str(path), stat.st_dev, stat.st_ino)
+                rebuild = rebuild or identity != self._db_identity
+                conn.execute("BEGIN")
+                if rebuild or self._last_db_row is None:
+                    rows = fetch_usage_rows(conn)
+                else:
+                    # Re-read one known row. A deleted, edited or reused
+                    # watermark invalidates the old counts even if MAX grew.
+                    rows = fetch_usage_rows(conn, self.watermark - 1)
+                    if rows and rows[0] == self._last_db_row:
+                        del rows[0]
+                    else:
+                        rebuild = True
+                        rows = fetch_usage_rows(conn)
+                if rebuild:
                     self._reset_usage()
                 self._db_identity = identity
-                self.new_requests = self._ingest(
-                    fetch_usage_rows(conn, self.watermark)
-                )
+                self.new_requests = self._ingest(rows)
+                if rows:
+                    self._last_db_row = rows[-1]
                 self.meta.pop("poll_error", None)
                 self.meta["poll_last_ok"] = datetime.now().astimezone().isoformat(timespec="seconds")
                 return self.new_requests
             except Exception as exc:
                 self.meta["poll_error"] = str(exc)
+                self.new_requests = 0
                 raise
             finally:
                 if conn is not None:
@@ -324,7 +347,7 @@ class UsageAggregator:
             "total": s.total_tokens,
         }
         if cost is not None:
-            d["cost"] = round(cost, 4)
+            d["cost"] = _usd(cost)
         return d
 
     def usage_report(self, start: str = "", end: str = "", model: str = "") -> dict:
@@ -352,7 +375,7 @@ class UsageAggregator:
                       if not model or name == model}
 
             def metrics(item: _PeriodTotal) -> dict:
-                return {**self._stats_dict(item.stats), "cost": round(item.cost, 9)}
+                return self._stats_dict(item.stats, item.cost)
 
             for day in sorted(key for key in self._day_sessions if start <= key <= end):
                 daily_total = _PeriodTotal()
@@ -456,9 +479,9 @@ class UsageAggregator:
             "cache_read": cache_read,
             "cache_creation": cache_creation,
             "total": tokens,
-            "cost": round(cost, 6),
+            "cost": _usd(cost),
             "avg_tokens_per_active_day": round(tokens / active_days) if active_days else 0,
-            "avg_cost_per_active_day": round(cost / active_days, 6) if active_days else 0,
+            "avg_cost_per_active_day": _usd(cost / active_days) if active_days else 0,
         }
 
     def _analytics(self, today: date) -> dict:
@@ -491,9 +514,9 @@ class UsageAggregator:
                 "total": stats.total_tokens,
                 "tokens_per_request": round(stats.total_tokens / stats.requests) if stats.requests else 0,
                 "output_input_ratio": round(stats.output_tokens / stats.input_tokens, 3) if stats.input_tokens else None,
-                "cache_savings": round(saved, 6),
-                "cost_per_1k_output": round(cost * 1000 / stats.output_tokens, 6) if stats.output_tokens else None,
-                "cost": round(cost, 6),
+                "cache_savings": _usd(saved),
+                "cost_per_1k_output": _usd(cost * 1000 / stats.output_tokens) if stats.output_tokens else None,
+                "cost": _usd(cost),
             })
         recent = list(self.recent)
         token_samples = [
@@ -526,18 +549,18 @@ class UsageAggregator:
                 "comparison_7d_pct": change,
                 "comparison_30d_pct": change_30,
                 "month_projection": {
-                    "cost": round(month_to_date["cost"] * projection_factor, 2),
+                    "cost": _usd(month_to_date["cost"] * projection_factor),
                     "tokens": round(month_to_date["total"] * projection_factor),
                     "calendar_days": month_days,
                     "elapsed_days": today.day,
                 },
             },
             "economics": {
-                "cache_savings_estimate": round(cache_savings, 6),
+                "cache_savings_estimate": _usd(cache_savings),
                 "cache_read_tokens": total.cache_read_tokens,
                 "output_input_ratio": round(total.output_tokens / total.input_tokens, 3) if total.input_tokens else None,
                 "tokens_per_request": round(total.total_tokens / total.requests) if total.requests else 0,
-                "cost_per_1k_output": round(total_cost * 1000 / total.output_tokens, 6) if total.output_tokens else None,
+                "cost_per_1k_output": _usd(total_cost * 1000 / total.output_tokens) if total.output_tokens else None,
             },
             "performance": performance,
             "models": model_efficiency,
@@ -624,7 +647,7 @@ class UsageAggregator:
                         "hour": int(hour),
                         "requests": s.requests,
                         "total": s.total_tokens,
-                        "cost": round(cost, 4),
+                        "cost": _usd(cost),
                     }
                 )
             return {
@@ -664,15 +687,9 @@ class UsageAggregator:
             out.append(
                 {
                     **r,
-                    "cost": round(
-                        p.cost(
-                            r["input"],
-                            r["output"],
-                            r["cache_read"],
-                            r["cache_creation"],
-                        ),
-                        4,
-                    ),
+                    "cost": _usd(p.cost(
+                        r["input"], r["output"], r["cache_read"], r["cache_creation"]
+                    )),
                 }
             )
         return out
@@ -691,4 +708,9 @@ def format_tokens(n: int) -> str:
 def format_cost(c: float) -> str:
     if c >= 1:
         return f"${c:,.2f}"
-    return f"${c:.4f}".rstrip("0").rstrip(".")
+    if c == 0:
+        return "$0"
+    digits = max(4, 1 - math.floor(math.log10(abs(c))))
+    if digits > 12:
+        return f"${c:.2g}"
+    return f"${c:.{digits}f}".rstrip("0").rstrip(".")

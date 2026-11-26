@@ -30,7 +30,7 @@ no account, usage data stays on your machine.
 | | |
 |---|---|
 | **Menu-bar live cost** | Today's estimate in the status bar; click for a summary. Close the window and it keeps running — reopen from the menu or Dock. |
-| **Usage dashboard** | Native `NSWindow` + `WKWebView` (no HTTP server): KPI cards, token & cost trends (24 h / 14 d), model donut, token composition, cache hit-rate, weekday×hour heatmap, top-session ranking, cost/speed scatter. |
+| **Usage dashboard** | Native `NSWindow` + `WKWebView` (no HTTP server): KPI cards, token & cost trends (24 h / 14 d), model cost ranking, token composition, cache hit-rate, weekday×hour heatmap, top-session ranking, cost/speed scatter. |
 | **Per-request detail** | Model, latency, TTFT, tokens/s, cost — click any model, session, or request to drill down. Response bodies lazy-load so snapshots stay light. |
 | **Editable pricing** | ~140 models with per-1M input/output/cache prices in `prices.json`; exact → prefix → family matching, reasoning-effort aware. |
 | **Budget alerts** | Optional `daily_budget` posts a macOS notification once per day. |
@@ -61,7 +61,7 @@ Build and install the VSIX from source:
 cd vscode-extension
 npm install
 npm run package
-code --install-extension devin-token-monitor-0.4.3.vsix
+code --install-extension devin-token-monitor-0.4.4.vsix
 ```
 
 Then run **Devin Token Monitor: Open Dashboard** from the Command Palette. Requires Python 3.10+ on the local machine. Cursor supports VSIX-compatible extensions; Windsurf and other forks may vary by version and extension-install policy. Browser-only VS Code (`vscode.dev` / `github.dev`) is not supported because it cannot spawn the local Python worker or access the local SQLite database. See [`vscode-extension/README.md`](vscode-extension/README.md) and [the compatibility research](vscode-extension/RESEARCH.md).

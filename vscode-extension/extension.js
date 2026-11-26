@@ -39,8 +39,11 @@ class PythonWorker {
       let message;
       try {
         message = JSON.parse(line);
+        if (!message || !Number.isSafeInteger(message.id) || typeof message.ok !== 'boolean') {
+          throw new Error('Missing request ID or response status');
+        }
       } catch (error) {
-        this.output.appendLine(`Invalid Python worker response: ${error.message}`);
+        this.dispose(new Error(`Invalid Python worker response: ${error.message}`));
         return;
       }
       const pending = this.pending.get(message.id);
@@ -51,6 +54,7 @@ class PythonWorker {
       else pending.reject(new Error(message.error || 'Python worker failed'));
     });
     child.stderr.on('data', data => this.output.append(data.toString()));
+    child.stdin.on('error', error => this.dispose(error));
     child.on('error', error => this.failAll(error));
     child.on('close', (code, signal) => {
       this.failAll(new Error(`Python worker exited (${signal || code})`));
@@ -59,14 +63,13 @@ class PythonWorker {
   }
 
   request(action, fields = {}) {
-    if (!this.child || this.child.killed) {
-      return Promise.reject(new Error('Python worker is not running'));
+    if (this.stopped) {
+      return Promise.reject(this.stopped);
     }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`Python worker timed out during ${action}`));
+        this.dispose(new Error(`Python worker timed out during ${action}`));
       }, 120000);
       this.pending.set(id, { resolve, reject, timer });
       this.child.stdin.write(`${JSON.stringify({ id, action, ...fields })}\n`, error => {
@@ -79,6 +82,7 @@ class PythonWorker {
   }
 
   failAll(error) {
+    this.stopped ??= error;
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
       pending.reject(error);
@@ -86,9 +90,9 @@ class PythonWorker {
     this.pending.clear();
   }
 
-  dispose() {
-    this.failAll(new Error('Python worker stopped'));
-    if (this.child && !this.child.killed) this.child.kill();
+  dispose(error = new Error('Python worker stopped')) {
+    this.failAll(error);
+    if (this.child && !this.child.killed && this.child.exitCode == null) this.child.kill();
   }
 }
 
@@ -101,7 +105,7 @@ let lastStatus;
 let lastLoggedError;
 let pollTimer;
 let polling = false;
-let restarting = false;
+let extensionContext;
 let backendConfigKey;
 
 function expandPath(value) {
@@ -133,9 +137,13 @@ function resolvePricesPath(context, configured) {
 }
 
 function formatCost(value) {
-  return value >= 1
-    ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : `$${value.toFixed(4)}`;
+  if (!Number.isFinite(value)) return '—';
+  if (value === 0) return '$0.00';
+  const amount = Math.abs(value);
+  const digits = amount >= 1 ? 2 : Math.min(12, Math.max(4, 1 - Math.floor(Math.log10(amount))));
+  return (value < 0 ? '−$' : '$') + amount.toLocaleString('en-US', {
+    minimumFractionDigits: digits, maximumFractionDigits: digits,
+  });
 }
 
 function dayKey() {
@@ -200,16 +208,29 @@ function showSummary(summary) {
 let contextState;
 
 async function refresh(action = 'poll', notify = false) {
-  if (!backend) return;
+  if (!extensionContext) return;
+  let worker;
   try {
+    if (!backend || backend.stopped) {
+      backend = undefined;
+      backend = new PythonWorker(extensionContext, output);
+      backendConfigKey = currentBackendConfig();
+    }
+    worker = backend;
     const includeSnapshot = Boolean(panel && panel.visible);
-    const result = await backend.request(action, { include_snapshot: includeSnapshot });
+    const result = await worker.request(action, { include_snapshot: includeSnapshot });
+    if (worker !== backend) return;
     if (result.snapshot) showSnapshot(result.snapshot);
     else if (result.summary) showSummary(result.summary);
-    if (result.error) throw new Error(result.error);
+    if (result.error) {
+      if (lastLoggedError !== result.error) output.appendLine(result.error);
+      lastLoggedError = result.error;
+      if (notify) vscode.window.showErrorMessage(result.error);
+    }
   } catch (error) {
+    if (worker !== backend) return;
     logError({ notify }, error);
-    if (panel) panel.webview.postMessage({ type: 'error', message: error.message });
+    if (panel) panel.webview.postMessage({ type: 'sourceError', message: error.message });
     throw error;
   }
 }
@@ -240,6 +261,9 @@ async function exportCsv() {
 
 async function handleWebviewMessage(message) {
   if (!message || !message.action) return;
+  const target = panel;
+  const worker = backend;
+  const current = () => target && panel === target && worker === backend;
   try {
     if (message.action === 'ready') {
       if (lastSnapshot && panel) panel.webview.postMessage({ type: 'snapshot', snapshot: lastSnapshot });
@@ -247,31 +271,38 @@ async function handleWebviewMessage(message) {
     } else if (message.action === 'refresh') {
       await refresh('refresh', true);
     } else if (message.action === 'usageReport') {
-      const target = panel;
       if (!target) return;
       try {
-        const { report } = await backend.request('usageReport', {
+        if (!worker) throw new Error('Python worker is unavailable');
+        const { report } = await worker.request('usageReport', {
           start: message.start, end: message.end, model: message.model,
         });
-        if (panel === target) target.webview.postMessage({ type: 'usageReport', queryId: message.queryId, report });
+        if (current()) target.webview.postMessage({ type: 'usageReport', queryId: message.queryId, report });
       } catch (error) {
-        if (panel === target) target.webview.postMessage({ type: 'usageReport', queryId: message.queryId, error: error.message });
+        if (current()) target.webview.postMessage({ type: 'usageReport', queryId: message.queryId, error: error.message });
       }
     } else if (message.action === 'getBody') {
-      const result = await backend.request('body', {
-        request_id: message.rid || '',
-        message_id: message.mid || '',
-      });
-      if (panel) panel.webview.postMessage({ type: 'body', rid: message.rid || message.mid || '', body: result.body });
+      const rid = message.rid || message.mid || '';
+      try {
+        if (!worker) throw new Error('Python worker is unavailable');
+        const { body } = await worker.request('body', { request_id: message.rid || '', message_id: message.mid || '' });
+        if (current()) target.webview.postMessage({ type: 'body', rid, body });
+      } catch (error) {
+        if (current()) target.webview.postMessage({ type: 'body', rid, error: error.message });
+      }
     } else if (message.action === 'setBudget') {
-      const result = await backend.request('settings', { settings: { daily_budget: Number(message.value) || 0 } });
-      showSnapshot(result.snapshot);
+      if (!Number.isFinite(message.value) || message.value < 0) throw new Error('Enter a valid nonnegative budget.');
+      const result = await worker.request('settings', { settings: { daily_budget: message.value } });
+      if (current()) {
+        showSnapshot(result.snapshot);
+        target.webview.postMessage({ type: 'budgetSaved', value: result.snapshot.settings.daily_budget });
+      }
     } else if (message.action === 'setLanguage') {
       const result = await backend.request('settings', { settings: { language: String(message.value || 'en') } });
-      showSnapshot(result.snapshot);
+      if (current()) showSnapshot(result.snapshot);
     } else if (message.action === 'setTheme') {
       const result = await backend.request('settings', { settings: { theme: String(message.value || 'system') } });
-      showSnapshot(result.snapshot);
+      if (current()) showSnapshot(result.snapshot);
     } else if (message.action === 'export') {
       await exportCsv();
     } else if (message.action === 'editPrices') {
@@ -283,8 +314,9 @@ async function handleWebviewMessage(message) {
       output.appendLine(`Dashboard JavaScript: ${message.msg}`);
     }
   } catch (error) {
-    logError({ notify: false }, error);
-    if (panel) panel.webview.postMessage({ type: 'error', message: error.message });
+    if (!current() || message.action === 'ready' || message.action === 'refresh') return;
+    output.appendLine(error.message);
+    target.webview.postMessage({ type: 'error', message: error.message });
   }
 }
 
@@ -318,31 +350,16 @@ function currentBackendConfig() {
   ]);
 }
 
-function createBackend(context) {
-  try {
-    const next = new PythonWorker(context, output);
-    backendConfigKey = currentBackendConfig();
-    return next;
-  } catch (error) {
-    logError({ notify: false }, error);
-    return undefined;
-  }
-}
-
 async function restartBackend(context) {
-  if (restarting || (backend && backendConfigKey === currentBackendConfig())) return;
-  restarting = true;
-  try {
-    if (backend) backend.dispose();
-    lastSnapshot = undefined;
-    backend = createBackend(context);
-    if (!backend) return;
-    await refresh('initialize');
-  } catch (error) {
-    logError({ notify: false }, error);
-  } finally {
-    restarting = false;
-  }
+  if (backend && !backend.stopped && backendConfigKey === currentBackendConfig()) return;
+  const previous = backend;
+  backend = undefined;
+  previous?.dispose();
+  lastStatus = undefined;
+  lastSnapshot = undefined;
+  // A different database may reuse request IDs. Drop rows and outstanding body lookups together.
+  if (panel) panel.webview.html = dashboardHtml(panel.webview, context);
+  await refresh('initialize').catch(() => {});
 }
 
 function configurePolling() {
@@ -360,7 +377,7 @@ function activate(context) {
   contextState = context.globalState;
   output = vscode.window.createOutputChannel('Devin Token Monitor');
   context.subscriptions.push(output);
-  backend = createBackend(context);
+  extensionContext = context;
   statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 20);
   statusItem.command = 'devinTokenMonitor.openDashboard';
   statusItem.text = '$(pulse) Devin —';
@@ -407,7 +424,10 @@ function activate(context) {
 
 function deactivate() {
   if (pollTimer) clearInterval(pollTimer);
-  if (backend) backend.dispose();
+  extensionContext = undefined;
+  const previous = backend;
+  backend = undefined;
+  previous?.dispose();
 }
 
 module.exports = { activate, deactivate };

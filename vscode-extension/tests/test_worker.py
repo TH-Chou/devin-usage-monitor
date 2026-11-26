@@ -1,3 +1,5 @@
+import csv
+import io
 import base64
 import json
 import os
@@ -9,6 +11,7 @@ import unittest
 import urllib.error
 import urllib.request
 import zipfile
+from contextlib import closing
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,7 +24,7 @@ sys.path.insert(0, str(EXTENSION_ROOT / "python"))
 
 import devin_token_monitor
 from devin_token_monitor import pricing
-from devin_token_monitor.aggregator import UsageAggregator
+from devin_token_monitor.aggregator import UsageAggregator, format_cost
 from devin_token_monitor.db import UsageRow, connect, fetch_message_body
 
 devin_token_monitor.__path__.append(str(EXTENSION_ROOT.parent / "devin_token_monitor"))
@@ -129,12 +132,17 @@ class WorkerProtocolTests(unittest.TestCase):
             self.assertEqual(analytics["models"][0]["cost_per_1k_output"], 0.0048)
             self.assertEqual(responses[1]["result"]["body"], "lazy response body")
             archive = zipfile.ZipFile(
-                __import__("io").BytesIO(base64.b64decode(responses[2]["result"]["data"]))
+                io.BytesIO(base64.b64decode(responses[2]["result"]["data"]))
             )
             self.assertEqual(set(archive.namelist()), {
                 "requests.csv", "sessions.csv", "daily.csv", "models.csv"
             })
             self.assertIn("request-1", archive.read("requests.csv").decode("utf-8"))
+            for kind in ("sessions", "models"):
+                table = csv.DictReader(io.StringIO(archive.read(kind + ".csv").decode()))
+                self.assertEqual(table.fieldnames[-1], "cache_creation")
+                self.assertEqual(next(table)["cache_creation"], "100000")
+            archive.close()
             self.assertEqual(responses[3]["result"]["snapshot"]["settings"]["theme"], "ocean")
             self.assertEqual(json.loads(prices.read_text(encoding="utf-8"))["settings"]["theme"], "ocean")
             summary = responses[4]["result"]["summary"]
@@ -250,6 +258,99 @@ def make_usage_db(path, row_id, request_id, input_tokens):
 
 
 class DataReliabilityTests(unittest.TestCase):
+    def test_single_token_cost_matches_across_reports_and_snapshot(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "sessions.db"
+            make_usage_db(path, 1, "r1", 1)
+            agg = UsageAggregator(pricing.PriceTable(pricing.ModelPrice(input=0.01), {}))
+            with patch.dict(os.environ, {"DEVIN_SESSIONS_DB": str(path)}):
+                agg.poll()
+            for price, expected in ((0.01, 1e-8), (1e-8, 1e-14), (0, 0)):
+                with self.subTest(price=price):
+                    agg.prices = pricing.PriceTable(pricing.ModelPrice(input=price), {})
+                    snapshot = agg.snapshot()
+                    values = [snapshot[key][0]["cost"] for key in (
+                        "by_model", "sessions", "by_day", "by_hour", "heatmap", "requests",
+                    )]
+                    values += [snapshot["total"]["cost"], snapshot["analytics"]["models"][0]["cost"],
+                               agg.usage_report()["summary"]["cost"], agg.status_summary()["today"]["cost"]]
+                    self.assertEqual(values, [expected] * len(values))
+                    self.assertEqual(float(format_cost(expected).removeprefix("$")), expected)
+                    self.assertEqual(agg.usage_report()["summary"]["total"], 1)
+
+    def test_watermark_rewrite_and_manual_rebuild_in_wal(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "sessions.db"
+            make_usage_db(path, 1, "r1", 1)
+            agg = UsageAggregator(pricing.PriceTable(pricing.ModelPrice(input=1), {}))
+            with closing(sqlite3.connect(path)) as writer, patch.dict(os.environ, {"DEVIN_SESSIONS_DB": str(path)}):
+                writer.execute("PRAGMA journal_mode=WAL")
+                agg.poll()
+                original = agg.snapshot()["analytics"]["report_revision"]
+                edit = """UPDATE message_nodes SET chat_message=json_set(
+                    chat_message, '$.metadata.metrics.input_tokens', ?) WHERE row_id=1"""
+                writer.execute(edit, (15,))
+                writer.commit()
+                agg.poll()
+                self.assertEqual(agg.total.input_tokens, 15)
+                self.assertNotEqual(agg.snapshot()["analytics"]["report_revision"], original)
+
+                # A replacement tail can also coincide with a later append.
+                writer.execute(edit, (5,))
+                writer.execute("""INSERT INTO message_nodes
+                    SELECT 2, session_id, json_set(chat_message, '$.metadata.request_id', 'r2',
+                    '$.metadata.metrics.input_tokens', 8), created_at FROM message_nodes WHERE row_id=1""")
+                writer.commit()
+                agg.poll()
+                self.assertEqual(agg.usage_report()["summary"]["input"], 13)
+                self.assertEqual(agg.total.requests, 2)
+                self.assertEqual(agg.poll(), 0)
+
+                writer.execute(edit, (12,))
+                writer.commit()
+                agg.poll(rebuild=True)
+                self.assertEqual(agg.usage_report()["summary"]["input"], 20)
+                self.assertEqual(agg.meta["db_path"], str(path))
+
+    def test_offsetless_timestamp_and_optional_metrics_do_not_interrupt_ingest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "sessions.db"
+            make_usage_db(path, 1, "r1", 8)
+            instant = 1704103200
+            with closing(sqlite3.connect(path)) as writer:
+                writer.execute("""UPDATE message_nodes SET created_at=?, chat_message=json_set(
+                    chat_message, '$.metadata.created_at', '2024-01-01T10:00:00',
+                    '$.metadata.metrics.ttft_ms', '7.5', '$.metadata.metrics.tokens_per_sec', 'n/a')""",
+                    (instant,))
+                writer.commit()
+            agg = UsageAggregator(pricing.PriceTable(pricing.ModelPrice(), {}))
+            with patch.dict(os.environ, {"DEVIN_SESSIONS_DB": str(path)}):
+                self.assertEqual(agg.poll(), 1)
+                self.assertEqual(agg.poll(), 0)
+            snapshot = agg.snapshot()
+            request = snapshot["requests"][0]
+            self.assertEqual(datetime.fromisoformat(request["ts"]).timestamp(), instant)
+            self.assertEqual(request["ttft_ms"], 7.5)
+            self.assertIsNone(request["tok_per_s"])
+            self.assertEqual(agg.total.requests, 1)
+            self.assertEqual(agg.total.input_tokens, 8)
+
+    def test_missing_new_source_does_not_inherit_previous_source_totals(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "sessions.db"
+            missing = Path(temp) / "other.db"
+            make_usage_db(path, 1, "r1", 7)
+            agg = UsageAggregator(pricing.PriceTable(pricing.ModelPrice(), {}))
+            with patch.dict(os.environ, {"DEVIN_SESSIONS_DB": str(path)}):
+                agg.poll()
+            with patch.dict(os.environ, {"DEVIN_SESSIONS_DB": str(missing)}):
+                with self.assertRaises(FileNotFoundError):
+                    agg.poll()
+            self.assertEqual(agg.meta["db_path"], str(missing))
+            self.assertNotIn("poll_last_ok", agg.meta)
+            self.assertEqual(agg.usage_report()["summary"]["requests"], 0)
+            self.assertEqual(agg.snapshot()["requests"], [])
+
     def test_read_only_db_with_reserved_uri_characters(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "sessions #.db"
@@ -384,6 +485,15 @@ class DataReliabilityTests(unittest.TestCase):
                     aggregator.poll()
                     with urllib.request.urlopen(url + "/api/health") as response:
                         self.assertTrue(json.load(response)["ok"])
+                    with urllib.request.urlopen(url + "/api/export.zip") as response:
+                        self.assertEqual(response.headers.get_content_type(), "application/zip")
+                        self.assertIn("attachment", response.headers["Content-Disposition"])
+                        with zipfile.ZipFile(io.BytesIO(response.read())) as archive:
+                            self.assertEqual(set(archive.namelist()), {
+                                "requests.csv", "sessions.csv", "daily.csv", "models.csv",
+                            })
+                            with urllib.request.urlopen(url + "/api/export.csv?what=models") as single:
+                                self.assertEqual(archive.read("models.csv"), single.read())
                     with urllib.request.urlopen(url + "/api/usage-report?model=test-model") as response:
                         self.assertEqual(json.load(response)["summary"]["input"], 8)
                     with self.assertRaises(urllib.error.HTTPError) as bad_report:

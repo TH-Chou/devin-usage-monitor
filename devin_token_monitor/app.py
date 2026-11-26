@@ -82,8 +82,11 @@ class DevinTokenMonitor(rumps.App):
     # ---- updates ---------------------------------------------------------
 
     def on_poll(self, _timer):
+        self._poll()
+
+    def _poll(self, *, rebuild=False):
         try:
-            self.agg.poll()
+            self.agg.poll(rebuild=rebuild)
         except Exception as e:  # keep the app alive; surface in menu
             self.item_today.title = f"poll error: {e}"
             return
@@ -92,7 +95,7 @@ class DevinTokenMonitor(rumps.App):
     def on_refresh(self, _item):
         self.agg.prices = PriceTable.load()  # pick up price edits too
         self.agg.meta["prices_path"] = str(default_prices_path())
-        self.on_poll(None)
+        self._poll(rebuild=True)
 
     def on_edit_prices(self, _item):
         path = editable_prices_path()

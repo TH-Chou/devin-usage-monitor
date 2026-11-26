@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import base64
-import io
 import json
 import os
 import sys
-import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -13,7 +11,7 @@ sys.path.insert(0, str(ROOT))
 
 from devin_token_monitor import __version__
 from devin_token_monitor.aggregator import UsageAggregator
-from devin_token_monitor.exporter import export_all
+from devin_token_monitor.exporter import export_zip
 from devin_token_monitor.db import db_path
 from devin_token_monitor.pricing import PriceTable, default_prices_path, editable_prices_path
 
@@ -41,7 +39,7 @@ def handle(message: dict) -> dict:
             agg.prices = PriceTable.load()
         error = None
         try:
-            agg.poll()
+            agg.poll(rebuild=action == "refresh")
         except Exception as exc:
             error = str(exc)
         include_snapshot = bool(message.get("include_snapshot", True))
@@ -72,12 +70,8 @@ def handle(message: dict) -> dict:
         return {"path": str(editable_prices_path())}
     if action == "export":
         agg = get_aggregator()
-        files = export_all(agg.snapshot())
-        stream = io.BytesIO()
-        with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as archive:
-            for name, contents in files.items():
-                archive.writestr(f"{name}.csv", contents)
-        return {"data": base64.b64encode(stream.getvalue()).decode("ascii")}
+        data = export_zip(agg.snapshot())
+        return {"data": base64.b64encode(data).decode("ascii")}
     raise ValueError(f"unsupported action: {action!r}")
 
 
@@ -88,22 +82,22 @@ def main() -> int:
     # Node's readline stream decodes child-process stdout as UTF-8. Windows
     # otherwise uses the active console code page for redirected stdio.
     sys.stdin.reconfigure(encoding="utf-8")
-    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     sys.stderr.reconfigure(encoding="utf-8")
     for line in sys.stdin:
-        request = {}
+        request_id = None
         try:
             request = json.loads(line)
+            if not isinstance(request, dict):
+                raise ValueError("Expected a JSON object")
+            request_id = request.get("id")
             result = handle(request)
-            response = {"id": request.get("id"), "ok": True, "result": result}
+            encoded = json.dumps({"id": request_id, "ok": True, "result": result},
+                                 ensure_ascii=False, allow_nan=False)
         except Exception as exc:
-            response = {
-                "id": request.get("id"),
-                "ok": False,
-                "error": str(exc),
-            }
+            encoded = json.dumps({"id": request_id, "ok": False, "error": str(exc)})
         try:
-            sys.stdout.write(json.dumps(response, ensure_ascii=False) + "\n")
+            sys.stdout.write(encoded + "\n")
             sys.stdout.flush()
         except (BrokenPipeError, OSError):
             return 0

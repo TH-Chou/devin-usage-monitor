@@ -4,12 +4,21 @@ function applyTheme(theme){
   if(theme==='system')document.documentElement.removeAttribute('data-theme');
   else document.documentElement.dataset.theme=theme;
 }
-function setTheme(theme){
+async function saveWebSettings(patch){
+  const response=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
+  const snapshot=await response.json();
+  if(!response.ok)throw Error(snapshot.error||response.statusText);
+  return snapshot;
+}
+async function setTheme(theme){
   if(!THEMES.has(theme))return;
+  if(!native_){
+    try{update(await saveWebSettings({theme}));}
+    catch(error){document.getElementById('set-theme').value=DATA?.settings.theme||'system';toast(error.message);}
+    return;
+  }
   applyTheme(theme);
-  if(native_)native_.postMessage({action:'setTheme',value:theme});
-  else fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({theme})}).catch(()=>{});
+  native_.postMessage({action:'setTheme',value:theme});
   if(DATA){DATA.settings.theme=theme;update(DATA);}
 }
 function setPressed(button, pressed){
@@ -28,11 +37,14 @@ function applyLang(){
   const cur=document.querySelector('.view.on');
   if(cur)document.getElementById('view-title').textContent=TKEYS[cur.id.slice(2)]?t(TKEYS[cur.id.slice(2)]):'';
 }
-function setLang(l){
-  if(!I18N[l])return;LANG=l;
-  if(native_)native_.postMessage({action:'setLanguage',value:l});
-  else fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({language:l})}).catch(()=>{});
+async function setLang(l){
+  if(!I18N[l])return;
+  if(!native_){
+    try{update(await saveWebSettings({language:l}));}catch(error){toast(error.message);}
+    return;
+  }
+  LANG=l;
+  native_.postMessage({action:'setLanguage',value:l});
   applyLang();if(DATA){DATA.settings.language=l;update(DATA);}}
 
 function toast(msg){const t=document.getElementById('toast');

@@ -1,12 +1,10 @@
 // ---------- header + settings actions ----------
 function doRefresh(){
   if(native_)native_.postMessage({action:'refresh'});
-  else fetch('/api/refresh').then(async r=>{const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Refresh failed');return d;})
-    .then(update).catch(e=>toast(e.message));}
+  else fetchWebUsage(true);}
 function doExport(){
   if(native_)native_.postMessage({action:'export'});
-  else location.href='/api/export.csv?what=requests';}
+  else location.href='/api/export.zip';}
 document.getElementById('btn-refresh').onclick=doRefresh;
 document.getElementById('btn-export').onclick=doExport;
 document.getElementById('set-export2').onclick=doExport;
@@ -14,12 +12,20 @@ document.getElementById('set-open-prices').onclick=()=>{
   if(native_)native_.postMessage({action:'editPrices'});
   else toast(t('toast_edit_prices'));};
 document.getElementById('set-theme').onchange=e=>setTheme(e.target.value);
-document.getElementById('set-budget-save').onclick=()=>{
-  const v=parseFloat(document.getElementById('set-budget').value)||0;
-  if(native_)native_.postMessage({action:'setBudget',value:v});
-  else fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({daily_budget:v})}).then(r=>r.json()).then(update);
-  toast(v>0?t('toast_budget').replace('{v}',fmtCost(v)):t('toast_budget_off'));};
+function showBudgetSaved(value){
+  toast(value>0?tf('toast_budget',{v:fmtCost(value)}):t('toast_budget_off'));
+}
+document.getElementById('set-budget-save').onclick=async()=>{
+  const input=document.getElementById('set-budget');
+  if(!input.reportValidity())return;
+  const value=input.value===''?0:input.valueAsNumber;
+  if(native_){native_.postMessage({action:'setBudget',value});return;}
+  try{
+    const snapshot=await saveWebSettings({daily_budget:value});
+    update(snapshot);
+    showBudgetSaved(snapshot.settings.daily_budget);
+  }catch(error){toast(error.message);}
+};
 document.getElementById('set-login').onchange=e=>{
   if(native_)native_.postMessage({action:'toggleLoginItem',on:e.target.checked});
   else{e.target.checked=false;toast(t('toast_native_only'));}
@@ -63,8 +69,9 @@ function kpis(d){
       +' · '+fmtTok(td.total)+' tok');
   animateValue(document.getElementById('kv-req'),td.requests,v=>Math.round(v).toString());
   setTxt('ke-req',tf('ke_avgreq',{v:fmtCost(td.requests?(td.cost||0)/td.requests:0)}));
-  const hit=(td.input+td.cache_read)?td.cache_read/(td.input+td.cache_read)*100:0;
-  animateValue(document.getElementById('kv-hit'),hit,v=>v.toFixed(1)+'%');
+  const cacheable=td.input+td.cache_read;
+  if(cacheable)animateValue(document.getElementById('kv-hit'),td.cache_read/cacheable*100,v=>v.toFixed(1)+'%');
+  else setTxt('kv-hit','—');
   setTxt('ke-hit',tf('ke_cacheread',{v:fmtTok(td.cache_read)}));
   setTxt('kv-spd',speeds.length?fmtSpeed(avgSpd):'—');
   setTxt('ke-spd',t('ke_recent'));

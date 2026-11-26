@@ -69,11 +69,9 @@
             <button type="button" data-v="day" aria-pressed="false" data-i18n="seg_day">近 14 天</button></div></div>
           <div class="chart-body chart-plot"><div id="ch-hit"></div><div class="tip" id="tip-hit"></div></div></div>
         <div class="panel chart-card"><div class="sec-head"><h2 data-i18n="s_donut">模型费用占比</h2></div>
-          <div class="chart-body duo">
-            <div class="donut-wrap"><div id="donut"></div>
-              <div class="donut-center"><b id="donut-total">—</b><span data-i18n="donut_total">累计费用</span></div></div>
-            <div class="donut-legend" id="donut-legend"></div>
-            <div class="tip" id="tip-donut"></div></div></div>
+          <div class="chart-body model-cost-breakdown">
+            <div class="model-cost-total"><span data-i18n="donut_total">累计费用</span><b id="donut-total">—</b></div>
+            <div class="model-cost-list" id="donut-legend"></div></div></div>
         <div class="panel chart-card"><div class="sec-head"><h2><span data-i18n="s_heat">活跃热力图</span><span class="sub" data-i18n="s_heat_sub">星期 × 小时 · 全部历史</span></h2></div>
           <div class="chart-body chart-heat"><div id="ch-heat"></div><div class="tip" id="tip-heat"></div></div></div>
       </div>
@@ -237,7 +235,7 @@
           <div class="desc" data-i18n="st_budget_desc">今日费用超过预算时发送 macOS 通知并在标题警示。0 为关闭。</div>
           <div class="set-row">
             <span class="fade" style="font-size:13px" data-i18n="st_budget_lbl">预算 $</span>
-            <input type="number" id="set-budget" min="0" step="1" placeholder="0">
+            <input type="number" id="set-budget" min="0" step="any" placeholder="0">
             <button class="btn primary" id="set-budget-save" data-i18n="st_save">保存</button>
           </div>
         </div>

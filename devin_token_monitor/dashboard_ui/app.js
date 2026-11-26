@@ -88,15 +88,19 @@ function renderView(view){
   document.getElementById('v-'+view).querySelectorAll('.seg').forEach(segThumb);
 }
 
+function setSourceHealth(pollError){
+  const health=document.getElementById('source-status');
+  health.classList.toggle('offline',Boolean(pollError));
+  health.title=pollError||'';
+  health.querySelector('span').textContent=pollError?(OFFLINE_LABEL[LANG]||OFFLINE_LABEL.en):t('live');
+}
+
 function update(d){
   DATA=d;
   LANG=(d.settings&&d.settings.language)||'zh';
   applyTheme((d.settings&&d.settings.theme)||'system');
   applyLang();
-  const health=document.getElementById('source-status'),pollError=(d.meta||{}).poll_error;
-  health.classList.toggle('offline',Boolean(pollError));
-  health.title=pollError||'';
-  health.querySelector('span').textContent=pollError?(OFFLINE_LABEL[LANG]||OFFLINE_LABEL.en):t('live');
+  setSourceHealth(d.meta?.poll_error);
   const updated=document.getElementById('updated');
   updated.textContent=new Date(d.generated_at).toLocaleTimeString(LOCALE[LANG]||'zh-CN',
     {hour:'2-digit',minute:'2-digit',hour12:false});
@@ -114,6 +118,25 @@ function update(d){
 setupChart('tok','tok');setupChart('cost','cost');
 charts.mix={mode:'hour'};charts.hit={mode:'hour'};
 wireSeg('mix',()=>drawMix());wireSeg('hit',()=>drawHit());
+let pendingWebFetch=null;
+async function fetchWebUsage(manual=false){
+  if(pendingWebFetch&&(!manual||pendingWebFetch.manual))return;
+  const request={manual};
+  pendingWebFetch=request;
+  try{
+    const response=await fetch(manual?'/api/refresh':'/api/usage');
+    const snap=await response.json();
+    if(!response.ok)throw Error(snap.error||response.statusText);
+    if(pendingWebFetch===request)update(snap);
+  }catch(error){
+    if(pendingWebFetch===request){
+      setSourceHealth(error.message);
+      if(manual)toast(error.message);
+    }
+  }finally{
+    if(pendingWebFetch===request)pendingWebFetch=null;
+  }
+}
 if(!native_&&location.protocol.indexOf('http')===0){
-  const refresh=async()=>update(await(await fetch('/api/usage')).json());
-  refresh();setInterval(refresh,10000);}
+  fetchWebUsage();setInterval(fetchWebUsage,10000);
+}

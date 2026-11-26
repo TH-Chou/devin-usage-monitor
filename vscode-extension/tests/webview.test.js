@@ -59,7 +59,7 @@ test('Russian dashboard locale covers all labels and placeholders', () => {
 });
 
 test('model drilldown and source health remain visible', () => {
-  assert.match(source, /function setModelFilter\(m\)[\s\S]*?navigateTo\('requests'\)/);
+  assert.match(source, /function setModelFilter\(m,[^)]*\)[\s\S]*?navigateTo\('requests'\)/);
   assert.doesNotMatch(source, /querySelectorAll\('nav a'\)\[3\]/);
   assert.match(source, /poll_error/);
 });
@@ -120,4 +120,27 @@ test('the extension manifest resolves to the staged extension artwork', () => {
   const packaged = fs.readFileSync(path.join(extensionRoot, icon));
   const artwork = fs.readFileSync(path.join(extensionRoot, '..', 'assets', 'vsix-icon.png'));
   assert.deepEqual(packaged, artwork);
+});
+
+test('tiny positive costs remain distinct from zero', () => {
+  const start = source.indexOf('function fmtCost(');
+  const fmt = vm.runInNewContext(source.slice(start, source.indexOf('const fmtPrice=', start)) + '\nfmtCost');
+  for (const cost of [2e-6, 1e-8, 1e-14]) {
+    assert.equal(Number(fmt(cost).slice(1)), cost);
+  }
+  assert.equal(fmt(0), '$0.00');
+});
+
+test('report chart bins include idle dates, leap day and a partial final interval', () => {
+  const start = source.indexOf('function buildReportBins');
+  const bin = vm.runInNewContext(source.slice(start, source.indexOf('function drawReportTrend', start)) + '\nbuildReportBins', {
+    reportDayMs: 86400000,
+    isoDay: time => new Date(time).toISOString().slice(0, 10)
+  });
+  const rows = bin({start: '2024-02-27', end: '2024-03-02', daily: [
+    {day: '2024-02-29', requests: 3}, {day: '2024-03-02', requests: 1}
+  ]}, 'requests', 3);
+  assert.deepEqual(Array.from(rows, row => [row.first, row.last, row.value]), [
+    ['2024-02-27', '2024-02-28', 0], ['2024-02-29', '2024-03-01', 3], ['2024-03-02', '2024-03-02', 1]
+  ]);
 });

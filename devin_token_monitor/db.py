@@ -13,6 +13,7 @@ messages that performed model inference carry per-request metrics under
 
 from __future__ import annotations
 
+import math
 import os
 import sqlite3
 import sys
@@ -87,10 +88,25 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
 def _parse_ts(iso: object, fallback_unix: int) -> datetime:
     if isinstance(iso, str):
         try:
-            return datetime.fromisoformat(iso.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                return parsed
         except ValueError:
             pass
+    # A timestamp without an offset is ambiguous. The row also carries a
+    # Unix timestamp identifying its instant independently of the local zone.
     return datetime.fromtimestamp(fallback_unix, tz=timezone.utc)
+
+
+def _measurement(value: object) -> float | None:
+    """SQLite's JSON fields may contain strings or missing telemetry."""
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) and number >= 0 else None
 
 
 @dataclass
@@ -153,9 +169,9 @@ def fetch_usage_rows(conn: sqlite3.Connection, after_row_id: int = 0) -> list[Us
                 output_tokens=int(r[9] or 0),
                 cache_read_tokens=int(r[10] or 0),
                 cache_creation_tokens=int(r[11] or 0),
-                ttft_ms=r[12],
-                total_time_ms=r[13],
-                tokens_per_sec=r[14],
+                ttft_ms=_measurement(r[12]),
+                total_time_ms=_measurement(r[13]),
+                tokens_per_sec=_measurement(r[14]),
                 ts=_parse_ts(r[15], r[16]),
             )
         )

@@ -1,6 +1,6 @@
 // ---------- filtered usage reports ----------
 const reportEl=name=>document.getElementById('report-'+name);
-const reportUI={queryId:0,key:null,modelOptions:null,report:null,page:0,lang:''};
+const reportUI={queryId:0,key:null,scope:null,modelOptions:null,report:null,page:0,lang:''};
 const reportCount=n=>n.toLocaleString(LOCALE[LANG]);
 const reportDayMs=86400000;
 const isoDay=ms=>new Date(ms).toISOString().slice(0,10);
@@ -34,14 +34,20 @@ function refreshUsageReport(){
     reportEl('status').textContent=t('rp_invalid');
     return;
   }
-  const key=JSON.stringify([DATA.analytics?.report_revision??DATA.poll?.watermark,today,start,end,model]);
+  const scope=JSON.stringify([today,start,end,model]);
+  const key=JSON.stringify([scope,DATA.analytics?.report_revision??DATA.poll?.watermark]);
   if(reportUI.key===key){
     if(reportUI.lang!==LANG&&reportUI.report)drawUsageReport();
     return;
   }
   const queryId=++reportUI.queryId;
-  reportUI.key=key;reportUI.report=null;
-  reportEl('results').hidden=true;reportEl('status').textContent=t('loading');
+  reportUI.key=key;
+  if(reportUI.scope!==scope||!reportUI.report){
+    reportUI.report=null;
+    reportEl('results').hidden=true;
+    reportEl('status').textContent=t('loading');
+  }
+  reportUI.scope=scope;
   if(native_){
     native_.postMessage({action:'usageReport',queryId,start,end,model});
   }else{
@@ -56,48 +62,78 @@ function refreshUsageReport(){
 function showUsageReport(queryId,report,error){
   if(queryId!==reportUI.queryId)return;
   if(error||!report){
-    reportUI.key=null;reportUI.report=null;reportEl('results').hidden=true;
+    reportUI.key=null;reportEl('results').hidden=!reportUI.report;
     reportEl('status').textContent=[t('rp_failed'),error].filter(Boolean).join(' · ');
     return;
   }
   reportUI.report=report;
   drawUsageReport();
 }
+function buildReportBins(report,metric,limit){
+  const start=Date.parse(report.start+'T00:00:00Z'),end=Date.parse(report.end+'T00:00:00Z');
+  const dayCount=Math.round((end-start)/reportDayMs)+1;
+  const span=Math.max(1,Math.ceil(dayCount/limit));
+  const bins=Array.from({length:Math.ceil(dayCount/span)},(_,index)=>({
+    first:isoDay(start+index*span*reportDayMs),
+    last:isoDay(Math.min(end,start+((index+1)*span-1)*reportDayMs)),
+    value:0
+  }));
+  for(const row of report.daily){
+    const day=Math.round((Date.parse(row.day+'T00:00:00Z')-start)/reportDayMs);
+    bins[Math.floor(day/span)].value+=row[metric];
+  }
+  return bins;
+}
 function drawReportTrend(report){
   const el=reportEl('trend'),metric=reportEl('metric').value;
-  if(!report.daily.length){el.textContent=t('none');return;}
-  const start=Date.parse(report.start+'T00:00:00Z'),end=Date.parse(report.end+'T00:00:00Z');
-  const days=Math.round((end-start)/reportDayMs)+1;
-  // Bound the number of bars for multi-year reports. Each span covers calendar days, including idle days.
-  const span=Math.ceil(days/45),bins=Array(Math.ceil(days/span)).fill(0);
-  for(const row of report.daily){
-    const offset=Math.round((Date.parse(row.day+'T00:00:00Z')-start)/reportDayMs);
-    bins[Math.floor(offset/span)]+=row[metric];
+  const width=Math.max(240,Math.floor(el.clientWidth));
+  const bins=buildReportBins(report,metric,Math.max(8,Math.min(60,Math.floor(width/15))));
+  const peak=Math.max(...bins.map(bin=>bin.value));
+  if(!report.daily.length||!peak){
+    const key=!report.daily.length?'chart_empty_period':metric==='cost'?'chart_zero_cost':'chart_no_tokens';
+    el.innerHTML='<p class="chart-empty">'+esc(t(key))+'</p>';
+    return;
   }
-  const width=720,height=156,left=62,right=12,top=12,bottom=26;
-  const chartHeight=height-top-bottom,step=(width-left-right)/bins.length,barWidth=Math.min(32,step*.76);
-  const max=Math.max(...bins)||1,fmt=metric==='cost'?fmtCost:fmtTok;
-  let shapes='';
-  for(let i=0;i<=2;i++){
-    const y=top+chartHeight*i/2;
-    shapes+='<line x1="'+left+'" x2="'+(width-right)+'" y1="'+y+'" y2="'+y+'" stroke="var(--hair)"/>'+
-      '<text x="'+(left-8)+'" y="'+(y+3)+'" text-anchor="end" font-size="10" fill="var(--dim)">'+fmt(max*(1-i/2))+'</text>';
-  }
-  bins.forEach((value,index)=>{
-    const x=left+(index+.5)*step,h=value/max*chartHeight;
-    const first=isoDay(start+index*span*reportDayMs);
-    const last=isoDay(Math.min(end,start+((index+1)*span-1)*reportDayMs));
-    const range=first===last?first:first+' – '+last;
-    shapes+='<rect x="'+(x-barWidth/2)+'" y="'+(height-bottom-h)+'" width="'+barWidth+'" height="'+h+
-      '" rx="2" fill="var(--accent)"><title>'+range+' · '+(metric==='cost'?fmtCost(value):reportCount(value))+'</title></rect>';
-    if(index===0||index===bins.length-1||(index%Math.ceil(bins.length/4)===0&&index<bins.length-1-Math.floor(bins.length/8))){
-      const anchor=bins.length===1?'middle':index===0?'start':index===bins.length-1?'end':'middle';
-      shapes+='<text x="'+x+'" y="'+(height-5)+'" text-anchor="'+anchor+'" font-size="11" fill="var(--dim)">'+
-        (days>365?first.slice(0,7):first.slice(5))+'</text>';
+  const format=metric==='cost'?fmtCost:fmtTok;
+  const ticks=metric!=='cost'&&peak===1?[0,1]:[0,metric==='cost'?peak/2:Math.ceil(peak/2),peak];
+  const left=12+Math.max(...ticks.map(tick=>format(tick).length))*7;
+  const top=10,baseline=134,step=(width-left-14)/bins.length;
+  const barWidth=Math.min(42,Math.max(1,step-3));
+  const x=index=>left+(index+.5)*step;
+  const y=value=>baseline-(baseline-top)*value/peak;
+  const metricLabel=reportEl('metric').selectedOptions[0].text;
+  const parts=ticks.map(tick=>
+    `<line x1="${left}" x2="${width-10}" y1="${y(tick)}" y2="${y(tick)}" stroke="var(--hair)"/>
+     <text x="${left-7}" y="${y(tick)+4}" text-anchor="end">${esc(format(tick))}</text>`);
+  const labelStep=Math.max(1,Math.ceil(bins.length/Math.max(2,Math.floor((width-left)/92))));
+  bins.forEach((bin,i)=>{
+    const range=bin.first===bin.last?bin.first:bin.first+' – '+bin.last;
+    const value=metric==='cost'?fmtCost(bin.value):reportCount(bin.value);
+    // A full-height transparent target keeps zero-usage intervals inspectable.
+    parts.push(`<g><title>${range} · ${esc(metricLabel)} · ${esc(value)}</title>
+      <rect x="${left+i*step}" y="${top}" width="${step}" height="${baseline-top}" fill="transparent"/>
+      <rect x="${x(i)-barWidth/2}" y="${y(bin.value)}" width="${barWidth}" height="${baseline-y(bin.value)}" fill="var(--accent)"/></g>`);
+    const last=bins.length-1;
+    if(i===0||i===last||(i%labelStep===0&&i*step>=72&&(last-i)*step>=72)){
+      const anchor=bins.length===1?'middle':i===0?'start':i===last?'end':'middle';
+      const label=report.start.slice(0,4)===report.end.slice(0,4)?bin.first.slice(5):bin.first;
+      parts.push(`<text x="${x(i)}" y="153" text-anchor="${anchor}">${label}</text>`);
     }
   });
-  el.innerHTML='<svg viewBox="0 0 '+width+' '+height+'" role="img"><title>'+esc(t('s_trend'))+' · '+report.start+' – '+report.end+'</title>'+shapes+'</svg>';
+  el.innerHTML=`<svg viewBox="0 0 ${width} 160" role="img"><title>${esc(metricLabel)} · ${report.start} – ${report.end}</title>${parts.join('')}</svg>`;
 }
+let reportTrendWidth=0;
+let reportTrendFrame=0;
+new ResizeObserver(([entry])=>{
+  const width=Math.round(entry.contentRect.width);
+  if(width>0&&width!==reportTrendWidth){
+    reportTrendWidth=width;
+    if(!reportTrendFrame)reportTrendFrame=requestAnimationFrame(()=>{
+      reportTrendFrame=0;
+      if(reportUI.report&&reportEl('trend').clientWidth)drawReportTrend(reportUI.report);
+    });
+  }
+}).observe(reportEl('trend'));
 function drawReportLedger(){
   const report=reportUI.report;
   if(!report||!reportEl('detail').open)return;

@@ -18,7 +18,6 @@ import os
 import subprocess
 import sys
 import threading
-import zipfile
 from datetime import date
 from pathlib import Path
 
@@ -57,10 +56,10 @@ from WebKit import (
 )
 
 from . import __version__
-from .aggregator import UsageAggregator
+from .aggregator import UsageAggregator, format_cost
 from .dashboard import PAGE
 from .db import db_path
-from .exporter import export_all
+from .exporter import export_zip
 from .pricing import PriceTable, default_prices_path, editable_prices_path
 
 POLL_SECONDS = 15
@@ -140,10 +139,6 @@ def _remove_login_item() -> None:
         capture_output=True,
     )
     _login_plist_path().unlink(missing_ok=True)
-
-
-def _fmt_cost(c: float) -> str:
-    return f"${c:,.2f}" if c >= 1 else f"${c:.4f}"
 
 
 # Native-chrome strings (sidebar / menus / tooltips / alerts).  The page
@@ -296,7 +291,8 @@ class AppDelegate(NSObject):
         }
         self._alerted_day = None
         self._last_poll_error = None
-        self._poll_lock = threading.Lock()
+        self._poll_running = False
+        self._rebuild_requested = False
         self._lang = self.agg.prices.language
         self._theme = str(self.agg.prices.settings.get("theme", "system") or "system")
         try:
@@ -686,7 +682,9 @@ class AppDelegate(NSObject):
             try:
                 self._save_settings({"daily_budget": float(v)})
             except Exception as e:
-                print(f"setBudget error: {e}")
+                self.evalJS_(f"toast({json.dumps(str(e))})")
+            else:
+                self.evalJS_(f"showBudgetSaved({json.dumps(self.agg.prices.daily_budget)})")
             self.push()
         elif action == "setLanguage":
             v = str(body.objectForKey_("value") or "zh")
@@ -797,32 +795,37 @@ class AppDelegate(NSObject):
                 NSMakeRect(200, 120, 950, 720), True
             )
             self.window.center()
-        if not self._poll_lock.acquire(blocking=False):
+        if self._poll_running:
             return
+        rebuild = self._rebuild_requested
+        self._rebuild_requested = False
+        self._poll_running = True
         try:
-            threading.Thread(target=self._poll_and_push, daemon=True).start()
+            threading.Thread(target=self._poll_and_push, args=(rebuild,), daemon=True).start()
         except Exception:
-            self._poll_lock.release()
+            self._poll_running = False
+            self._rebuild_requested = rebuild
             raise
 
-    def _poll_and_push(self):
+    @objc.python_method
+    def _poll_and_push(self, rebuild):
         try:
-            try:
-                self.agg.poll()
-                self._last_poll_error = None
-            except Exception as e:
-                message = str(e)
-                if message != self._last_poll_error:
-                    print(f"poll error: {message}")
-                self._last_poll_error = message
-            try:
-                self.performSelectorOnMainThread_withObject_waitUntilDone_(
-                    "push", None, False
-                )
-            except Exception as e:
-                print(f"dispatch push error: {e}")
+            self.agg.poll(rebuild=rebuild)
+            self._last_poll_error = None
+        except Exception as e:
+            message = str(e)
+            if message != self._last_poll_error:
+                print(f"poll error: {message}")
+            self._last_poll_error = message
         finally:
-            self._poll_lock.release()
+            self.performSelectorOnMainThread_withObject_waitUntilDone_("pollFinished:", None, False)
+
+    @_guarded
+    def pollFinished_(self, _sender):
+        self._poll_running = False
+        self.push()
+        if self._rebuild_requested:
+            self.tick_(None)
 
     @_guarded
     def push(self):
@@ -839,7 +842,7 @@ class AppDelegate(NSObject):
             self._apply_native_theme(theme)
         today = snap.get("today") or {}
         cost = today.get("cost") or 0
-        title = _fmt_cost(cost)
+        title = format_cost(cost)
         # only touch the cached status-bar button when the text actually
         # changes — each access re-verifies its ObjC class, and we want as
         # few such calls as possible (see launch-time comment above)
@@ -901,6 +904,7 @@ class AppDelegate(NSObject):
     def refresh_(self, _sender):
         self.agg.prices = PriceTable.load()
         self.agg.meta["prices_path"] = str(default_prices_path())
+        self._rebuild_requested = True
         self.tick_(None)
 
     @_guarded
@@ -937,10 +941,7 @@ class AppDelegate(NSObject):
         if panel.runModal() != NSModalResponseOK:
             return
         path = panel.URL().path()
-        data = export_all(self.agg.snapshot())
-        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
-            for name, text in data.items():
-                z.writestr(f"{name}.csv", text)
+        Path(path).write_bytes(export_zip(self.agg.snapshot()))
 
 
 def _build_menu(delegate):

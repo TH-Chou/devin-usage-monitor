@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.4
+
+- Rework the usage, composition and cache charts for small samples, empty periods and keyboard inspection. The model cost ranking includes every model and supports opening its requests.
+- Preserve sub-cent costs across snapshots, reports and charts. Manual refresh rereads edited records, and background polling detects changes to the last processed row.
+- Recover when the editor worker exits or the selected data source changes. Keep expanded replies visible across polls and show a retryable error when a reply cannot be loaded.
+- Export all four CSV tables from the web dashboard and include cache-write tokens in the session and model exports.
+
 ## 0.4.3
 
 - Redesign the dashboard in the International Typographic Style with an opaque navigation rail, ruled chart grid, tabular numerals and rectangular controls across all nine themes.

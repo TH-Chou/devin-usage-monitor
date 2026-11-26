@@ -22,7 +22,7 @@ from . import __version__
 from .aggregator import UsageAggregator
 from .dashboard import PAGE
 from .db import db_path
-from .exporter import export_csv
+from .exporter import export_csv, export_zip
 from .pricing import PriceTable, default_prices_path
 
 HOST = os.environ.get("DTM_HOST", "127.0.0.1")
@@ -63,7 +63,7 @@ class _Handler(BaseHTTPRequestHandler):
             try:
                 agg.prices = PriceTable.load()
                 agg.meta["prices_path"] = str(default_prices_path())
-                agg.poll()
+                agg.poll(rebuild=True)
             except Exception as e:
                 self._send(
                     500, json.dumps({"error": str(e)}).encode(),
@@ -75,21 +75,24 @@ class _Handler(BaseHTTPRequestHandler):
                 json.dumps(agg.snapshot()).encode(),
                 "application/json",
             )
-        elif path == "/api/export.csv":
-            what = parse_qs(url.query).get("what", ["requests"])[0]
-            try:
-                csv_text = export_csv(agg.snapshot(), what)
-            except ValueError as e:
-                self._send(400, str(e).encode(), "text/plain")
-                return
-            body = csv_text.encode()
+        elif path in ("/api/export.csv", "/api/export.zip"):
+            snapshot = agg.snapshot()
+            if path.endswith(".zip"):
+                body = export_zip(snapshot)
+                filename, ctype = "devin-usage.zip", "application/zip"
+            else:
+                what = parse_qs(url.query).get("what", ["requests"])[0]
+                try:
+                    body = export_csv(snapshot, what).encode()
+                except ValueError as exc:
+                    self._send(400, str(exc).encode(), "text/plain")
+                    return
+                filename, ctype = f"devin-usage-{what}.csv", "text/csv; charset=utf-8"
             self.send_response(200)
-            self.send_header("Content-Type", "text/csv; charset=utf-8")
-            self.send_header(
-                "Content-Disposition",
-                f'attachment; filename="devin-usage-{what}.csv"',
-            )
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(body)
         elif path == "/api/body":
