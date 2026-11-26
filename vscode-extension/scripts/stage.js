@@ -7,6 +7,7 @@ const repoRoot = path.resolve(extensionRoot, '..');
 const pythonRoot = path.join(extensionRoot, 'python');
 const packagedCore = path.join(pythonRoot, 'devin_token_monitor');
 
+fs.mkdirSync(path.join(extensionRoot, 'media'), { recursive: true });
 fs.mkdirSync(packagedCore, { recursive: true });
 for (const name of ['__init__.py', 'aggregator.py', 'db.py', 'exporter.py', 'pricing.py']) {
   fs.copyFileSync(
@@ -15,7 +16,7 @@ for (const name of ['__init__.py', 'aggregator.py', 'db.py', 'exporter.py', 'pri
   );
 }
 fs.copyFileSync(path.join(repoRoot, 'prices.json'), path.join(pythonRoot, 'prices.json'));
-fs.copyFileSync(path.join(repoRoot, 'assets', 'icon_1024.png'), path.join(extensionRoot, 'media', 'icon.png'));
+fs.copyFileSync(path.join(repoRoot, 'assets', 'vsix-icon.png'), path.join(extensionRoot, 'media', 'icon.png'));
 fs.copyFileSync(path.join(repoRoot, 'LICENSE'), path.join(extensionRoot, 'LICENSE'));
 
 const py = process.env.DTM_BUILD_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');

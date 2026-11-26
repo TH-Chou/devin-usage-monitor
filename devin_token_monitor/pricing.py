@@ -73,7 +73,7 @@ def editable_prices_path() -> Path:
 
 _KEYS = ("input", "output", "cache_read", "cache_creation")
 _LANGUAGES = ("zh", "en", "ja", "ko", "es", "vi", "ru")
-_THEMES = ("system", "midnight", "graphite", "paper", "ocean", "forest")
+_THEMES = ("system", "midnight", "graphite", "paper", "ocean", "forest", "porcelain", "apricot", "plum")
 
 
 @dataclass

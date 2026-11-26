@@ -1,10 +1,12 @@
 """py2app build script: .venv/bin/python setup_gui.py py2app"""
+from glob import glob
+
 from setuptools import setup
 
 setup(
     name="Devin Token Monitor",
     app=["gui_entry.py"],
-    data_files=["prices.json"],
+    data_files=["prices.json", ("dashboard_ui", sorted(glob("devin_token_monitor/dashboard_ui/*.*")))],
     options={
         "py2app": {
             "iconfile": "assets/dtm.icns",
@@ -15,8 +17,8 @@ setup(
                 "CFBundleName": "Devin Token Monitor",
                 "CFBundleDisplayName": "Devin Token Monitor",
                 "CFBundleIdentifier": "com.local.devin-token-monitor",
-                "CFBundleShortVersionString": "0.3.5",
-                "CFBundleVersion": "0.3.5",
+                "CFBundleShortVersionString": "0.4.3",
+                "CFBundleVersion": "0.4.3",
                 "LSMinimumSystemVersion": "12.0",
             },
         }

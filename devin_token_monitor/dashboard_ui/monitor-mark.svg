@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="brand-mark" width="128" height="128" viewBox="0 0 128 128" aria-hidden="true" focusable="false">
+  <path fill="#be3527" d="M0 0h128v128H0z"/>
+  <g fill="#faf8ee">
+    <path d="M24 22h35c28 0 47 17 47 42s-19 42-47 42H24V84h34c15 0 24-8 24-20s-9-20-24-20H24z"/>
+    <path d="M24 54h37v20H24z"/>
+  </g>
+</svg>

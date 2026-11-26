@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.3
+
+- Redesign the dashboard in the International Typographic Style with an opaque navigation rail, ruled chart grid, tabular numerals and rectangular controls across all nine themes.
+- Apply the selected palette to model charts and the activity heatmap.
+- Introduce a vermilion extension icon with a three-stroke D, also used in the dashboard.
+
+## 0.4.2
+
+- Give navigation, the floating toolbar and session details a glass surface that follows the selected palette. Charts and totals retain solid backgrounds.
+- Update the chart period selector with a sliding selection indicator. The date and language filters now support keyboard activation, and closing a session restores focus.
+- Use opaque materials for reduced transparency and high contrast, and respect reduced motion during control transitions.
+
+## 0.4.1
+
+- Align paired overview charts on wide screens, including titles that wrap and model lists of different lengths.
+- Add three solid dashboard themes: Porcelain, Apricot, and Plum.
+
+## 0.4.0
+
+- Explore complete local usage by date and model, with daily trends, cache breakdowns and cost rankings.
+- Search and paginate recent requests, sort by cost, tokens or duration, and inspect cache writes and timing alongside the reply.
+- Choose the metric displayed in the IDE status bar.
+- Refresh the shared dashboard with solid theme palettes, adaptive navigation and reduced-motion support.
+
 ## 0.3.5
 
 - Resolve the default sessions.db location per platform: `%APPDATA%\Devin\cli\sessions.db` on Windows, `~/.local/share/devin/cli/sessions.db` on POSIX, with the XDG path kept as a fallback for junction-based setups.

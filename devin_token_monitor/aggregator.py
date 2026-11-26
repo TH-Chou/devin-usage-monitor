@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import calendar
 import threading
-from collections import deque
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Iterable
+from uuid import uuid4
 
 from .db import (
     UsageRow,
@@ -52,6 +53,17 @@ class UsageStats:
             self.ttft_sum += row.ttft_ms
             self.ttft_n += 1
 
+    def merge(self, other: UsageStats) -> None:
+        self.requests += other.requests
+        self.input_tokens += other.input_tokens
+        self.output_tokens += other.output_tokens
+        self.cache_read_tokens += other.cache_read_tokens
+        self.cache_creation_tokens += other.cache_creation_tokens
+        self.speed_sum += other.speed_sum
+        self.speed_n += other.speed_n
+        self.ttft_sum += other.ttft_sum
+        self.ttft_n += other.ttft_n
+
     @property
     def avg_speed(self) -> float | None:
         return self.speed_sum / self.speed_n if self.speed_n else None
@@ -86,11 +98,7 @@ class SessionBucket:
     def stats(self) -> UsageStats:
         total = UsageStats()
         for s in self.by_model.values():
-            total.requests += s.requests
-            total.input_tokens += s.input_tokens
-            total.output_tokens += s.output_tokens
-            total.cache_read_tokens += s.cache_read_tokens
-            total.cache_creation_tokens += s.cache_creation_tokens
+            total.merge(s)
         return total
 
     def cost(self, prices: PriceTable) -> float:
@@ -106,9 +114,20 @@ class SessionBucket:
         return total
 
 
+@dataclass
+class _PeriodTotal:
+    stats: UsageStats = field(default_factory=UsageStats)
+    cost: float = 0.0
+
+    def add(self, stats: UsageStats, cost: float) -> None:
+        self.stats.merge(stats)
+        self.cost += cost
+
+
 class UsageAggregator:
     def __init__(self, prices: PriceTable):
-        self.prices = prices
+        self._prices = prices
+        self._report_revision = uuid4().hex
         self.watermark = 0
         self.total = UsageStats()
         self.by_model: dict[str, UsageStats] = {}
@@ -119,6 +138,9 @@ class UsageAggregator:
         self.by_weekhour: dict[str, UsageStats] = {}  # "dow-hour" -> stats
         self.by_weekhour_model: dict[str, dict[str, UsageStats]] = {}
         self.by_session: dict[str, SessionBucket] = {}
+        # Date and model filters must also apply to session rankings, including
+        # requests older than the capped list used by the request inspector.
+        self._day_sessions: dict[str, dict[tuple[str, str], UsageStats]] = {}
         self.new_requests = 0  # rows ingested by the most recent poll
         self.recent: deque[dict] = deque(maxlen=RECENT_LIMIT)
         self.lock = threading.RLock()
@@ -128,6 +150,16 @@ class UsageAggregator:
         # inference request counts once.
         self._seen: set[str] = set()
         self._db_identity: tuple[int, int] | None = None
+
+    @property
+    def prices(self) -> PriceTable:
+        return self._prices
+
+    @prices.setter
+    def prices(self, table: PriceTable) -> None:
+        with self.lock:
+            self._prices = table
+            self._report_revision = uuid4().hex
 
     def _reset_usage(self) -> None:
         self.watermark = 0
@@ -140,9 +172,11 @@ class UsageAggregator:
         self.by_weekhour.clear()
         self.by_weekhour_model.clear()
         self.by_session.clear()
+        self._day_sessions.clear()
         self.recent.clear()
         self._seen.clear()
         self.new_requests = 0
+        self._report_revision = uuid4().hex
 
     def _ingest(self, rows: Iterable[UsageRow]) -> int:
         n = 0
@@ -179,6 +213,8 @@ class UsageAggregator:
             bucket.working_directory = row.working_directory
             bucket.last_ts = max(bucket.last_ts, row.ts)
             bucket.by_model.setdefault(row.model, UsageStats()).add(row)
+            day_sessions = self._day_sessions.setdefault(day, {})
+            day_sessions.setdefault((row.session_id, row.model), UsageStats()).add(row)
 
             self.recent.appendleft(
                 {
@@ -198,6 +234,8 @@ class UsageAggregator:
                 }
             )
             n += 1
+        if n:
+            self._report_revision = uuid4().hex
         return n
 
     def poll(self) -> int:
@@ -288,6 +326,67 @@ class UsageAggregator:
         if cost is not None:
             d["cost"] = round(cost, 4)
         return d
+
+    def usage_report(self, start: str = "", end: str = "", model: str = "") -> dict:
+        """Summarize complete, deduplicated history over inclusive local dates."""
+        for bound in (start, end):
+            if not isinstance(bound, str) or (bound and date.fromisoformat(bound).isoformat() != bound):
+                raise ValueError("Use YYYY-MM-DD for report dates")
+        if start and end and start > end:
+            raise ValueError("The start date must be on or before the end date")
+        if not isinstance(model, str):
+            raise ValueError("Model must be a string")
+
+        with self.lock:
+            today = date.today().isoformat()
+            if not end:
+                end = max(today, start, max(self.by_day, default=today))
+            if not start:
+                start = min(end, min(self.by_day, default=end))
+
+            summary = _PeriodTotal()
+            models: dict[str, _PeriodTotal] = defaultdict(_PeriodTotal)
+            sessions: dict[str, _PeriodTotal] = defaultdict(_PeriodTotal)
+            daily = []
+            prices = {name: self.prices.price_for(name) for name in self.by_model
+                      if not model or name == model}
+
+            def metrics(item: _PeriodTotal) -> dict:
+                return {**self._stats_dict(item.stats), "cost": round(item.cost, 9)}
+
+            for day in sorted(key for key in self._day_sessions if start <= key <= end):
+                daily_total = _PeriodTotal()
+                for (session_id, name), stats in self._day_sessions[day].items():
+                    if model and name != model:
+                        continue
+                    cost = prices[name].cost(stats.input_tokens, stats.output_tokens,
+                                             stats.cache_read_tokens, stats.cache_creation_tokens)
+                    daily_total.add(stats, cost)
+                    models[name].add(stats, cost)
+                    sessions[session_id].add(stats, cost)
+                if daily_total.stats.requests:
+                    daily.append({"day": day, **metrics(daily_total)})
+                    summary.add(daily_total.stats, daily_total.cost)
+
+            def ranking(item: tuple[str, _PeriodTotal]) -> tuple[float, int, str]:
+                key, total = item
+                return (-total.cost, -total.stats.total_tokens, key)
+
+            return {
+                "start": start,
+                "end": end,
+                "model": model,
+                "summary": metrics(summary),
+                "daily": daily,
+                "models": [{"model": name, **metrics(total)}
+                           for name, total in sorted(models.items(), key=ranking)],
+                "sessions": [
+                    {"id": sid, "title": self.by_session[sid].title,
+                     "dir": self.by_session[sid].working_directory, **metrics(total)}
+                    for sid, total in sorted(sessions.items(), key=ranking)[:10]
+                ],
+                "session_count": len(sessions),
+            }
 
     def status_summary(self) -> dict:
         with self.lock:
@@ -417,6 +516,7 @@ class UsageAggregator:
         total = self.total
         total_cost = self.total_cost()
         return {
+            "report_revision": self._report_revision,
             "periods": {
                 "last_7_days": last_7,
                 "previous_7_days": previous_7,

@@ -21,7 +21,13 @@ The extension runs as a **UI extension** so the Python worker accesses the local
 
 Install from the Extensions view when available, or use **Extensions: Install from VSIX…** with the `.vsix` file attached to a GitHub release. Cursor uses Open VSX for marketplace discovery; installing a VSIX manually is the fallback if the extension is not listed. Compatibility with Windsurf and other forks depends on their current extension-install policy and VS Code API version.
 
-After installation, run **Devin Token Monitor: Open Dashboard** from the Command Palette. The status bar also shows today's estimated cost. The dashboard adds six persistent color themes and an Insights page for rolling-period usage, month-end run-rate projections, estimated cache savings, model efficiency, and request-size/latency percentiles.
+After installation, run **Devin Token Monitor: Open Dashboard** from the Command Palette. The status bar can show today’s estimated cost, tokens, request count, or cache read share. The dashboard uses the International Typographic Style with a flat navigation rail, aligned numeric columns, and ruled charts. The system palette pairs warm white and ink with a vermilion accent. It includes nine persistent color themes and an Insights page for rolling-period usage, month-end run-rate projections, estimated cache savings, model efficiency, and request-size/latency percentiles.
+
+### Explore usage
+
+In **Insights**, choose a date range and optionally a model. The totals, token breakdown, daily chart, model costs and ten highest-cost sessions all use that selection. Totals cover the full local database after duplicate request IDs have been removed. The reference section below the report retains the rolling summaries, forecast and performance samples.
+
+**Requests** searches session titles, model names and IDs across the latest 5,000 requests. Use the page controls to browse 50 at a time, or sort by time, cost, token count or duration. Open a row to see cache writes, latency and the reply. The CSV archive retains the snapshot limits for request and session details.
 
 ## Configuration
 
@@ -31,6 +37,7 @@ After installation, run **Devin Token Monitor: Open Dashboard** from the Command
 | `devinTokenMonitor.databasePath` | Devin CLI default | Override the `sessions.db` location. Supports `~`, `$VAR`, `${VAR}` and Windows `%VAR%`. |
 | `devinTokenMonitor.pricesPath` | Extension user storage | Optional custom `prices.json`. Existing `~/.devin-token-monitor/prices.json` is reused automatically. |
 | `devinTokenMonitor.refreshInterval` | `15` | Poll interval in seconds (minimum 5). |
+| `devinTokenMonitor.statusBarMetric` | `cost` | Choose `cost`, `tokens`, `requests`, or `cache` for the status bar. |
 | `devinTokenMonitor.showStatusBar` | `true` | Show or hide the status bar cost. |
 
 Use **Devin Token Monitor: Select Sessions Database** to choose a database interactively, and **Devin Token Monitor: Open Price Table** to edit the active price table. The bundled seed is copied to writable user storage on first edit; the extension installation files are never modified.
@@ -52,7 +59,7 @@ npm run package
 This stages the current shared Python modules, `prices.json`, and evaluated dashboard HTML into the extension package, then creates a `.vsix` file. To install locally:
 
 ```bash
-code --install-extension devin-token-monitor-0.3.5.vsix
+code --install-extension devin-token-monitor-0.4.3.vsix
 ```
 
 For development, open `vscode-extension` in VS Code, run `npm install`, then run the **Extension Development Host** launch configuration after staging with `npm run stage`.

@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+from devin_token_monitor import __version__
 from devin_token_monitor.aggregator import UsageAggregator
 from devin_token_monitor.exporter import export_all
 from devin_token_monitor.db import db_path
@@ -26,6 +27,7 @@ def get_aggregator() -> UsageAggregator:
         aggregator = UsageAggregator(prices)
         aggregator.meta = {
             "db_path": str(db_path()),
+            "version": __version__,
             "prices_path": str(default_prices_path()),
         }
     return aggregator
@@ -48,6 +50,9 @@ def handle(message: dict) -> dict:
         if error:
             result["error"] = error
         return result
+    if action == "usageReport":
+        filters = (str(message.get(key) or "") for key in ("start", "end", "model"))
+        return {"report": get_aggregator().usage_report(*filters)}
     if action == "settings":
         agg = get_aggregator()
         patch = message.get("settings") or {}

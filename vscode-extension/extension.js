@@ -97,6 +97,7 @@ let backend;
 let panel;
 let statusItem;
 let lastSnapshot;
+let lastStatus;
 let lastLoggedError;
 let pollTimer;
 let polling = false;
@@ -153,20 +154,29 @@ function logError(context, error) {
   if (context.notify) vscode.window.showErrorMessage(message);
 }
 
-function updateStatus(data) {
+function updateStatus(data, checkBudget = true) {
+  lastStatus = data;
   const today = data.today || {};
   const cost = Number(today.cost || 0);
   const pollError = (data.meta || {}).poll_error;
   if (!pollError) lastLoggedError = undefined;
-  statusItem.text = pollError ? '$(warning) Devin Monitor' : `$(pulse) Devin ${formatCost(cost)}`;
+  const config = vscode.workspace.getConfiguration(PREFIX);
+  const short = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+  const requests = today.requests || 0;
+  const tokens = today.total || 0;
+  const input = (today.input || 0) + (today.cache_read || 0);
+  const hit = input ? Math.round(100 * (today.cache_read || 0) / input) + '%' : '—';
+  const metrics = { cost: formatCost(cost), tokens: short.format(tokens) + ' tok',
+    requests: short.format(requests) + ' req', cache: hit + ' cache' };
+  const selected = metrics[config.get('statusBarMetric', 'cost')] || metrics.cost;
+  statusItem.text = pollError ? '$(warning) Devin Monitor' : `$(pulse) Devin ${selected}`;
   statusItem.tooltip = pollError
     ? `Devin Token Monitor\n${pollError}\nSelect the sessions database to retry`
-    : `Devin Token Monitor\nToday: ${formatCost(cost)} · ${today.requests || 0} requests\nClick to open dashboard`;
-  const config = vscode.workspace.getConfiguration(PREFIX);
+    : `Devin Token Monitor\nToday: ${formatCost(cost)} · ${requests} requests · ${tokens.toLocaleString()} tokens\nCache read share: ${hit}\nClick to open dashboard`;
   if (config.get('showStatusBar', true)) statusItem.show();
   else statusItem.hide();
   const budget = Number((data.settings || {}).daily_budget || 0);
-  if (!pollError && budget > 0 && cost > budget) {
+  if (checkBudget && !pollError && budget > 0 && cost > budget) {
     const key = `${PREFIX}.budgetAlertDay`;
     if (contextState && contextState.get(key) !== dayKey()) {
       contextState.update(key, dayKey());
@@ -236,6 +246,17 @@ async function handleWebviewMessage(message) {
       await refresh('poll');
     } else if (message.action === 'refresh') {
       await refresh('refresh', true);
+    } else if (message.action === 'usageReport') {
+      const target = panel;
+      if (!target) return;
+      try {
+        const { report } = await backend.request('usageReport', {
+          start: message.start, end: message.end, model: message.model,
+        });
+        if (panel === target) target.webview.postMessage({ type: 'usageReport', queryId: message.queryId, report });
+      } catch (error) {
+        if (panel === target) target.webview.postMessage({ type: 'usageReport', queryId: message.queryId, error: error.message });
+      }
     } else if (message.action === 'getBody') {
       const result = await backend.request('body', {
         request_id: message.rid || '',
@@ -370,6 +391,7 @@ function activate(context) {
       if (vscode.workspace.getConfiguration(PREFIX).get('showStatusBar', true)) statusItem.show();
       else statusItem.hide();
     }
+    if (lastStatus && event.affectsConfiguration(`${PREFIX}.statusBarMetric`)) updateStatus(lastStatus, false);
     if (event.affectsConfiguration(`${PREFIX}.refreshInterval`)) configurePolling();
     if (event.affectsConfiguration(`${PREFIX}.pythonPath`) ||
         event.affectsConfiguration(`${PREFIX}.databasePath`) ||

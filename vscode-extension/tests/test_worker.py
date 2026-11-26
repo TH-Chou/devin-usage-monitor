@@ -9,6 +9,7 @@ import unittest
 import urllib.error
 import urllib.request
 import zipfile
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -21,7 +22,7 @@ sys.path.insert(0, str(EXTENSION_ROOT / "python"))
 import devin_token_monitor
 from devin_token_monitor import pricing
 from devin_token_monitor.aggregator import UsageAggregator
-from devin_token_monitor.db import connect, fetch_message_body
+from devin_token_monitor.db import UsageRow, connect, fetch_message_body
 
 devin_token_monitor.__path__.append(str(EXTENSION_ROOT.parent / "devin_token_monitor"))
 from devin_token_monitor.web import start_server
@@ -100,6 +101,7 @@ class WorkerProtocolTests(unittest.TestCase):
                 {"id": 3, "action": "export"},
                 {"id": 4, "action": "settings", "settings": {"theme": "ocean"}},
                 {"id": 5, "action": "poll", "include_snapshot": False},
+                {"id": 6, "action": "usageReport", "model": "test-model"},
             ]
             process = subprocess.run(
                 [sys.executable, str(WORKER)],
@@ -110,7 +112,7 @@ class WorkerProtocolTests(unittest.TestCase):
                 check=True,
             )
             responses = [json.loads(line) for line in process.stdout.splitlines()]
-            self.assertEqual([item["id"] for item in responses], [1, 2, 3, 4, 5])
+            self.assertEqual([item["id"] for item in responses], [1, 2, 3, 4, 5, 6])
             self.assertTrue(all(item["ok"] for item in responses), process.stderr)
             snapshot = responses[0]["result"]["snapshot"]
             self.assertEqual(snapshot["total"]["requests"], 1)
@@ -140,6 +142,59 @@ class WorkerProtocolTests(unittest.TestCase):
             self.assertEqual(summary["settings"]["theme"], "ocean")
             self.assertNotIn("requests", summary)
             self.assertNotIn("snapshot", responses[4]["result"])
+            report = responses[5]["result"]["report"]
+            self.assertEqual(report["summary"]["cost"], 2.4)
+            self.assertEqual(report["models"][0]["model"], "test-model")
+            self.assertEqual(report["sessions"][0]["title"], "Тестовая сессия — résumé")
+            self.assertNotIn("lazy response body", json.dumps(report))
+
+
+class UsageReportTests(unittest.TestCase):
+    def test_filters_and_rankings_include_evicted_rows_and_use_current_prices(self):
+        prices = pricing.PriceTable(pricing.ModelPrice(input=1), {
+            "b": pricing.ModelPrice(input=3, output=5, cache_read=1, cache_creation=4),
+        })
+        with patch("devin_token_monitor.aggregator.RECENT_LIMIT", 1):
+            agg = UsageAggregator(prices)
+        first = UsageRow(
+            row_id=1, session_id="s1", session_title="First", working_directory="/one",
+            model="a", request_id="r1", message_id="m1", input_tokens=1000000,
+            output_tokens=0, cache_read_tokens=0, cache_creation_tokens=0, ttft_ms=None,
+            total_time_ms=None, tokens_per_sec=None, ts=datetime(2026, 1, 1, 12).astimezone(),
+        )
+        second = replace(first, row_id=2, model="b", request_id="r2", session_id="s2",
+                         session_title="Second", ts=datetime(2026, 1, 2, 12).astimezone(),
+                         output_tokens=100000, cache_read_tokens=100000, cache_creation_tokens=50000)
+        third = replace(first, row_id=3, request_id="r3", ts=second.ts)
+        self.assertEqual(agg._ingest([first, second, third, replace(first, row_id=4)]), 3)
+        self.assertEqual(len(agg.recent), 1)
+        full = agg.usage_report()
+        self.assertEqual(full["summary"]["requests"], 3)
+        self.assertEqual(full["summary"]["cost"], 5.8)
+        self.assertEqual(full["session_count"], 2)
+        self.assertEqual([row["model"] for row in full["models"]], ["b", "a"])
+        self.assertEqual([row["id"] for row in full["sessions"]], ["s2", "s1"])
+        self.assertEqual([row["cost"] for row in full["daily"]], [1, 4.8])
+
+        report = agg.usage_report("2026-01-02", "2026-01-02", "b")
+        self.assertEqual(report["summary"], {
+            "requests": 1, "total": 1250000, "input": 1000000, "output": 100000,
+            "cache_read": 100000, "cache_creation": 50000, "cost": 3.8,
+        })
+        self.assertEqual(report["sessions"][0]["requests"], 1)
+        self.assertEqual(agg.usage_report("2026-01-01", "2026-01-01", "b")["daily"], [])
+        revision = agg.snapshot()["analytics"]["report_revision"]
+        agg._ingest([])
+        self.assertEqual(agg.snapshot()["analytics"]["report_revision"], revision)
+        agg.prices = pricing.PriceTable(pricing.ModelPrice(), {})
+        self.assertNotEqual(agg.snapshot()["analytics"]["report_revision"], revision)
+        self.assertEqual(agg.usage_report()["summary"]["cost"], 0)
+
+    def test_rejects_invalid_dates(self):
+        agg = UsageAggregator(pricing.PriceTable(pricing.ModelPrice(), {}))
+        for start, end in (("2026-02-30", ""), ("20260101", ""), ("2026-01-02", "2026-01-01")):
+            with self.subTest(start=start, end=end), self.assertRaises(ValueError):
+                agg.usage_report(start, end)
 
 
 class CurrentModelPriceTests(unittest.TestCase):
@@ -256,6 +311,7 @@ class DataReliabilityTests(unittest.TestCase):
                 aggregator.poll()
                 self.assertEqual(aggregator.snapshot()["total"]["input"], 7)
                 self.assertEqual(aggregator.snapshot()["total"]["requests"], 1)
+                self.assertEqual(aggregator.usage_report()["summary"]["input"], 7)
 
     def test_poll_failure_is_reported_and_cleared_on_recovery(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -328,6 +384,12 @@ class DataReliabilityTests(unittest.TestCase):
                     aggregator.poll()
                     with urllib.request.urlopen(url + "/api/health") as response:
                         self.assertTrue(json.load(response)["ok"])
+                    with urllib.request.urlopen(url + "/api/usage-report?model=test-model") as response:
+                        self.assertEqual(json.load(response)["summary"]["input"], 8)
+                    with self.assertRaises(urllib.error.HTTPError) as bad_report:
+                        urllib.request.urlopen(url + "/api/usage-report?start=invalid")
+                    self.assertEqual(bad_report.exception.code, 400)
+                    bad_report.exception.close()
                     request = urllib.request.Request(
                         url + "/api/settings", data=b'{"theme":"forest"}',
                         headers={"Content-Type": "application/json"},

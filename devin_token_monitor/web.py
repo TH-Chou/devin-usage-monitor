@@ -51,6 +51,14 @@ class _Handler(BaseHTTPRequestHandler):
                 json.dumps(agg.snapshot()).encode(),
                 "application/json",
             )
+        elif path == "/api/usage-report":
+            query = parse_qs(url.query)
+            try:
+                report = agg.usage_report(*(query.get(key, [""])[0] for key in ("start", "end", "model")))
+            except ValueError as error:
+                self._send(400, json.dumps({"error": str(error)}).encode(), "application/json")
+                return
+            self._send(200, json.dumps(report).encode(), "application/json")
         elif path == "/api/refresh":
             try:
                 agg.prices = PriceTable.load()

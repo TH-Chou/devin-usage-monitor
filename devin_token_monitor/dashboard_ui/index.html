@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Devin Token Monitor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+<!-- dashboard-style -->
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="logo"><!-- dashboard-brand --><div><b>Devin Token</b><span data-i18n="logo_sub">用量与费用</span></div></div>
+    <nav id="nav">
+      <a href="#" data-v="overview" class="on" aria-current="page"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5"/><rect x="11" y="2.5" width="6.5" height="6.5" rx="1.5"/><rect x="2.5" y="11" width="6.5" height="6.5" rx="1.5"/><rect x="11" y="11" width="6.5" height="6.5" rx="1.5"/></svg></span><span data-i18n="nav_overview">概览</span></a>
+      <a href="#" data-v="insights"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16.5V10M8 16.5V4M13 16.5V7M18 16.5V2"/><path d="M2 17.5h17"/></svg></span><span data-i18n="nav_insights">分析</span></a>
+      <a href="#" data-v="models"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4.5" width="11" height="11" rx="2"/><rect x="8" y="8" width="4" height="4" rx="1"/><path d="M7 2v2.5M10 2v2.5M13 2v2.5M7 15.5V18M10 15.5V18M13 15.5V18M2 7h2.5M2 10h2.5M2 13h2.5M15.5 7H18M15.5 10H18M15.5 13H18"/></svg></span><span data-i18n="nav_models">模型</span></a>
+      <a href="#" data-v="sessions"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 3.5h10a2 2 0 012 2v4.5a2 2 0 01-2 2h-4.3l-3.4 2.6v-2.4H4a2 2 0 01-2-2V5.5a2 2 0 011.5-2z"/><circle cx="6.6" cy="8" r="0.9" fill="currentColor" stroke="none"/><circle cx="9.8" cy="8" r="0.9" fill="currentColor" stroke="none"/><circle cx="13" cy="8" r="0.9" fill="currentColor" stroke="none"/></svg></span><span data-i18n="nav_sessions">会话</span></a>
+      <a href="#" data-v="requests"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="6.5" y1="5" x2="17.5" y2="5"/><line x1="6.5" y1="10" x2="17.5" y2="10"/><line x1="6.5" y1="15" x2="17.5" y2="15"/><circle cx="3.5" cy="5" r="1"/><circle cx="3.5" cy="10" r="1"/><circle cx="3.5" cy="15" r="1"/></svg></span><span data-i18n="nav_requests">请求</span></a>
+      <a href="#" data-v="settings"><span class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="5.5" x2="18" y2="5.5"/><circle cx="7.5" cy="5.5" r="2" fill="var(--card)"/><line x1="2" y1="10" x2="18" y2="10"/><circle cx="13" cy="10" r="2" fill="var(--card)"/><line x1="2" y1="14.5" x2="18" y2="14.5"/><circle cx="9" cy="14.5" r="2" fill="var(--card)"/></svg></span><span data-i18n="nav_settings">设置</span></a>
+    </nav>
+    <div class="side-foot">
+      <div class="t" data-i18n="sf_today">今日费用</div>
+      <div class="v" id="sf-cost">—</div>
+      <div class="e" id="sf-req">—</div>
+    </div>
+  </aside>
+  <main>
+    <header>
+      <h1 id="view-title" tabindex="-1">概览</h1>
+      <span class="live" id="source-status"><i></i><span data-i18n="live">实时</span></span>
+      <span class="spacer"></span>
+      <span class="upd"><span data-i18n="updated">更新于</span> <span id="updated">—</span></span>
+      <div class="toolbar-actions">
+        <button type="button" class="btn" id="btn-refresh" data-label="refresh">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M16.4 7.6a6.6 6.6 0 1 0 .2 4.2M16.5 3.5v4.6h-4.6"/></svg>
+          <span data-i18n="refresh">刷新</span></button>
+        <button type="button" class="btn" id="btn-export" data-label="export">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12V2.5m-3.4 3.4L10 2.5l3.4 3.4M6.2 8.5H4a.8.8 0 0 0-.8.8v7a1 1 0 0 0 1 1h11.6a1 1 0 0 0 1-1v-7a.8.8 0 0 0-.8-.8h-2.2"/></svg>
+          <span data-i18n="export">导出</span></button>
+      </div>
+    </header>
+
+    <section class="view on" id="v-overview">
+      <div class="cards" id="kpis"></div>
+      <div class="overview-charts">
+        <div class="panel chart-card"><div class="sec-head"><h2 data-i18n="s_trend">用量趋势</h2>
+          <div class="seg" id="seg-tok"><i class="thumb" aria-hidden="true"></i>
+            <button type="button" data-v="hour" class="on" aria-pressed="true" data-i18n="seg_hour">近 24 小时</button>
+            <button type="button" data-v="day" aria-pressed="false" data-i18n="seg_day">近 14 天</button></div></div>
+          <div class="chart-body chart-plot"><div class="legend" id="leg-tok"></div>
+            <div id="ch-tok"></div><div class="tip" id="tip-tok"></div></div></div>
+        <div class="panel chart-card"><div class="sec-head"><h2><span data-i18n="s_mix">Token 构成</span><span class="sub" data-i18n="s_mix_sub">输入 / 输出 / 缓存</span></h2>
+          <div class="seg" id="seg-mix"><i class="thumb" aria-hidden="true"></i>
+            <button type="button" data-v="hour" class="on" aria-pressed="true" data-i18n="seg_hour">近 24 小时</button>
+            <button type="button" data-v="day" aria-pressed="false" data-i18n="seg_day">近 14 天</button></div></div>
+          <div class="chart-body chart-plot"><div class="legend" id="leg-mix"></div>
+            <div id="ch-mix"></div><div class="tip" id="tip-mix"></div></div></div>
+        <div class="panel chart-card"><div class="sec-head"><h2 data-i18n="s_cost">费用趋势</h2>
+          <div class="seg" id="seg-cost"><i class="thumb" aria-hidden="true"></i>
+            <button type="button" data-v="hour" class="on" aria-pressed="true" data-i18n="seg_hour">近 24 小时</button>
+            <button type="button" data-v="day" aria-pressed="false" data-i18n="seg_day">近 14 天</button></div></div>
+          <div class="chart-body chart-plot"><div class="legend" id="leg-cost"></div>
+            <div id="ch-cost"></div><div class="tip" id="tip-cost"></div></div></div>
+        <div class="panel chart-card"><div class="sec-head"><h2><span data-i18n="s_hit">缓存命中率趋势</span><span class="sub" data-i18n="s_hit_sub">缓存读取 ÷ (输入 + 缓存读取)</span></h2>
+          <div class="seg" id="seg-hit"><i class="thumb" aria-hidden="true"></i>
+            <button type="button" data-v="hour" class="on" aria-pressed="true" data-i18n="seg_hour">近 24 小时</button>
+            <button type="button" data-v="day" aria-pressed="false" data-i18n="seg_day">近 14 天</button></div></div>
+          <div class="chart-body chart-plot"><div id="ch-hit"></div><div class="tip" id="tip-hit"></div></div></div>
+        <div class="panel chart-card"><div class="sec-head"><h2 data-i18n="s_donut">模型费用占比</h2></div>
+          <div class="chart-body duo">
+            <div class="donut-wrap"><div id="donut"></div>
+              <div class="donut-center"><b id="donut-total">—</b><span data-i18n="donut_total">累计费用</span></div></div>
+            <div class="donut-legend" id="donut-legend"></div>
+            <div class="tip" id="tip-donut"></div></div></div>
+        <div class="panel chart-card"><div class="sec-head"><h2><span data-i18n="s_heat">活跃热力图</span><span class="sub" data-i18n="s_heat_sub">星期 × 小时 · 全部历史</span></h2></div>
+          <div class="chart-body chart-heat"><div id="ch-heat"></div><div class="tip" id="tip-heat"></div></div></div>
+      </div>
+      <div class="sec"><div class="sec-head"><h2><span data-i18n="s_top">会话费用榜</span><span class="sub" data-i18n="s_top_sub">累计 TOP 8 · 点击看明细</span></h2></div>
+        <div class="panel pad0"><div class="hbars" id="ch-top"></div></div></div>
+    </section>
+
+    <section class="view" id="v-models">
+      <div class="panel pad0"><table><thead><tr id="th-models"></tr></thead>
+        <tbody id="t-models"></tbody></table></div>
+      <div class="sec"><div class="sec-head"><h2><span data-i18n="s_scatter">单请求 成本 × 速度</span><span class="sub" data-i18n="s_scatter_sub">最近请求采样 · 点击定位会话</span></h2></div>
+        <div class="panel"><div id="ch-scatter"></div><div class="tip" id="tip-scatter"></div></div></div>
+    </section>
+
+    <section class="view" id="v-insights">
+      <div class="sec-head"><h2 data-i18n="rp_title">用量统计</h2></div>
+      <div class="report-toolbar">
+        <label class="report-field"><span data-i18n="rp_period">日期范围</span>
+          <select id="report-period">
+            <option value="today" data-i18n="f_today">今天</option>
+            <option value="7d" selected data-i18n="an_last7">7 天</option>
+            <option value="30d" data-i18n="an_last30">30 天</option>
+            <option value="mtd" data-i18n="an_mtd">本月</option>
+            <option value="all" data-i18n="an_all">累计</option>
+            <option value="custom" data-i18n="rp_custom">自选日期</option>
+          </select></label>
+        <div id="report-dates" class="report-dates" hidden>
+          <label class="report-field"><span data-i18n="rp_start">开始日期</span><input type="date" id="report-start"></label>
+          <label class="report-field"><span data-i18n="rp_end">结束日期</span><input type="date" id="report-end"></label>
+        </div>
+        <label class="report-field"><span data-i18n="col_model">模型</span><select id="report-model">
+          <option value="" data-i18n="f_all_models">全部模型</option></select></label>
+      </div>
+      <div id="report-status" class="report-status" role="status"></div>
+      <div id="report-results" hidden>
+        <div class="report-summary cards" id="report-summary"></div>
+        <div class="report-grid">
+          <section class="report-panel panel report-wide">
+            <div class="report-panel-head"><h3 data-i18n="s_trend">用量趋势</h3>
+              <label class="report-field"><span data-i18n="an_metric">指标</span>
+                <select id="report-metric"><option value="total" data-i18n="d_total">总 tokens</option>
+                  <option value="cost" data-i18n="rp_est_cost">估算费用</option>
+                  <option value="requests" data-i18n="d_reqs">请求数</option></select></label></div>
+            <div id="report-trend" class="report-trend"></div>
+            <details id="report-detail"><summary data-i18n="rp_daily">每日明细</summary>
+              <table class="insight-table report-table"><thead><tr><th data-i18n="rp_date">日期</th>
+                <th data-i18n="d_reqs">请求数</th><th data-i18n="d_total">总 tokens</th><th data-i18n="rp_est_cost">估算费用</th>
+              </tr></thead><tbody id="report-ledger"></tbody></table>
+              <div class="report-pagination"><button type="button" class="btn" id="report-prev" data-i18n="rp_prev">上一页</button>
+                <span id="report-page"></span><button type="button" class="btn" id="report-next" data-i18n="rp_next">下一页</button></div>
+            </details>
+          </section>
+          <section class="report-panel panel report-wide"><div class="report-panel-head"><h3 data-i18n="s_mix">Token 构成</h3></div>
+            <div class="report-composition" id="report-composition" aria-hidden="true"></div>
+            <div class="report-legend" id="report-composition-key"></div></section>
+          <section class="report-panel panel"><div class="report-panel-head"><h3 data-i18n="rp_model_rank">模型费用排名</h3></div>
+            <table class="insight-table report-table"><thead><tr><th data-i18n="col_model">模型</th><th data-i18n="d_total">总 tokens</th>
+              <th data-i18n="rp_est_cost">估算费用</th></tr></thead><tbody id="report-models"></tbody></table></section>
+          <section class="report-panel panel"><div class="report-panel-head"><h3 data-i18n="rp_session_rank">会话费用排名</h3></div>
+            <table class="insight-table report-table"><thead><tr><th data-i18n="col_sess">会话</th><th data-i18n="d_total">总 tokens</th>
+              <th data-i18n="rp_est_cost">估算费用</th></tr></thead><tbody id="report-sessions"></tbody></table></section>
+        </div>
+      </div>
+      <div class="sec-head report-historical"><h2 data-i18n="rp_history">全模型用量基准</h2></div>
+      <div class="sec-head"><h3 data-i18n="rp_hist_period">周期概况 · 全部模型</h3>
+        <div class="seg" id="seg-analysis"><i class="thumb" aria-hidden="true"></i>
+          <button type="button" data-v="7d" class="on" aria-pressed="true" data-i18n="an_last7">7 天</button>
+          <button type="button" data-v="30d" aria-pressed="false" data-i18n="an_last30">30 天</button>
+          <button type="button" data-v="mtd" aria-pressed="false" data-i18n="an_mtd">本月</button>
+          <button type="button" data-v="all" aria-pressed="false" data-i18n="an_all">累计</button></div></div>
+      <div class="cards" id="analysis-kpis"></div>
+      <div class="sec-head"><h3 data-i18n="rp_all_history">全部历史 · 全部模型</h3></div>
+      <div class="insight-grid">
+        <div class="panel insight-panel"><h3 data-i18n="an_economics">Token 效率</h3>
+          <div class="desc" data-i18n="an_economics_desc">结合模型单价衡量缓存价值与生成效率。</div>
+          <div class="insight-values" id="analysis-economics"></div></div>
+        <div class="panel insight-panel"><h3 data-i18n="an_distribution">请求规模与性能分位</h3>
+          <div class="desc" id="analysis-sample"></div>
+          <table class="insight-table"><thead><tr><th data-i18n="an_metric">指标</th><th>P50</th><th>P90</th></tr></thead>
+            <tbody id="analysis-percentiles"></tbody></table></div>
+        <div class="panel insight-panel" style="grid-column:1/-1"><h3 data-i18n="an_models">模型效率对比</h3>
+          <div class="desc" data-i18n="an_models_desc">区分高产模型、缓存收益与单位输出成本。</div>
+          <table class="insight-table"><thead><tr>
+            <th data-i18n="col_model">模型</th><th data-i18n="col_req">请求</th>
+            <th data-i18n="an_tokens_req">Token/请求</th><th data-i18n="an_out_in">输出/输入</th>
+            <th data-i18n="an_cache_saved">估算缓存节省</th><th data-i18n="an_cost_1k">每千输出成本</th>
+          </tr></thead><tbody id="analysis-models"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-sessions">
+      <div class="panel pad0"><table><thead><tr>
+        <th class="l nosort" data-i18n="col_last">最后活动</th><th class="l nosort" data-i18n="col_title">标题</th>
+        <th class="l nosort" data-i18n="col_model">模型</th><th class="nosort" data-i18n="col_total">总 tokens</th>
+        <th class="nosort" data-i18n="col_cost">费用</th><th class="nosort" style="width:12%"></th>
+      </tr></thead><tbody id="t-sessions"></tbody></table></div>
+    </section>
+
+    <section class="view" id="v-requests">
+      <div class="panel pad0">
+        <div class="filters">
+          <select id="f-model" data-label="col_model"><option value="" data-i18n="f_all_models">全部模型</option></select>
+          <input type="search" id="f-session" data-label="log_search" data-i18n-ph="log_search" placeholder="搜索会话标题…">
+          <input type="date" id="f-date" data-label="log_date">
+          <button type="button" class="chip on" data-day="" aria-pressed="true" data-i18n="f_all">全部</button>
+          <button type="button" class="chip" data-day="today" aria-pressed="false" data-i18n="f_today">今天</button>
+          <button type="button" class="chip" data-day="7" aria-pressed="false" data-i18n="f_7d">近 7 天</button>
+          <select id="f-sort" data-label="log_sort">
+            <option value="newest" data-i18n="log_newest">最近优先</option>
+            <option value="cost" data-i18n="log_cost">费用最高</option>
+            <option value="tokens" data-i18n="log_tokens">Token 最多</option>
+            <option value="latency" data-i18n="log_slowest">耗时最长</option>
+          </select>
+        </div>
+        <table id="feed"><thead><tr>
+          <th class="l nosort" data-i18n="col_time">时间</th><th class="l nosort" data-i18n="col_model">模型</th>
+          <th class="l nosort" data-i18n="col_sess">会话</th><th class="nosort" data-i18n="col_input">输入</th>
+          <th class="nosort" data-i18n="col_output">输出</th><th class="nosort" data-i18n="col_cache">缓存</th>
+          <th class="nosort" data-i18n="col_speed">速度</th><th class="nosort" data-i18n="col_thiscost">本次费用</th>
+        </tr></thead><tbody id="t-recent"></tbody></table>
+        <div class="filters log-pager">
+          <span id="f-count" aria-live="polite"></span><span class="spacer"></span>
+          <button class="btn" id="f-prev" data-label="log_prev">←</button>
+          <button class="btn" id="f-next" data-label="log_next">→</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="v-settings">
+      <div class="set-grid">
+        <div class="panel set-card">
+          <h3 data-i18n="st_lang">语言 / Language</h3>
+          <div class="desc" data-i18n="st_lang_desc">选择界面语言，自动保存。</div>
+          <div class="set-row" id="lang-row" style="flex-wrap:wrap;gap:6px">
+            <button type="button" class="chip" data-lang="zh">中文</button>
+            <button type="button" class="chip" data-lang="en">English</button>
+            <button type="button" class="chip" data-lang="ja">日本語</button>
+            <button type="button" class="chip" data-lang="ko">한국어</button>
+            <button type="button" class="chip" data-lang="es">Español</button>
+            <button type="button" class="chip" data-lang="vi">Tiếng Việt</button>
+            <button type="button" class="chip" data-lang="ru">Русский</button>
+          </div>
+        </div>
+        <div class="panel set-card">
+          <h3 data-i18n="st_theme">主题外观</h3>
+          <div class="desc" data-i18n="st_theme_desc">切换配色预设；系统模式跟随操作系统外观。</div>
+          <div class="set-row"><select id="set-theme" data-label="st_theme">
+            <option value="system" data-i18n="theme_system">跟随系统</option>
+            <option value="midnight" data-i18n="theme_midnight">午夜蓝</option>
+            <option value="graphite" data-i18n="theme_graphite">石墨</option>
+            <option value="paper" data-i18n="theme_paper">暖纸</option>
+            <option value="ocean" data-i18n="theme_ocean">深海</option>
+            <option value="forest" data-i18n="theme_forest">森林</option>
+            <option value="porcelain" data-i18n="theme_porcelain">青瓷</option>
+            <option value="apricot" data-i18n="theme_apricot">杏陶</option>
+            <option value="plum" data-i18n="theme_plum">夜梅</option>
+          </select></div>
+        </div>
+        <div class="panel set-card">
+          <h3 data-i18n="st_budget">每日预算告警</h3>
+          <div class="desc" data-i18n="st_budget_desc">今日费用超过预算时发送 macOS 通知并在标题警示。0 为关闭。</div>
+          <div class="set-row">
+            <span class="fade" style="font-size:13px" data-i18n="st_budget_lbl">预算 $</span>
+            <input type="number" id="set-budget" min="0" step="1" placeholder="0">
+            <button class="btn primary" id="set-budget-save" data-i18n="st_save">保存</button>
+          </div>
+        </div>
+        <div class="panel set-card" id="native-startup">
+          <h3 data-i18n="st_general">通用</h3>
+          <div class="desc" data-i18n="st_general_desc">登录 macOS 时自动启动监控应用。</div>
+          <div class="set-row">
+            <label class="switch"><input type="checkbox" id="set-login"><i></i></label>
+            <span id="set-login-label" data-i18n="st_login">登录时启动</span>
+          </div>
+        </div>
+        <div class="panel set-card">
+          <h3 data-i18n="st_data">数据</h3>
+          <div class="kv"><b data-i18n="st_dbsrc">数据源</b><span class="mono" id="set-dbpath">—</span></div>
+          <div class="kv"><b data-i18n="st_prices">价格表</b><span class="mono" id="set-pricespath">—</span></div>
+          <div class="set-row" style="margin-top:10px">
+            <button class="btn" id="set-open-prices" data-i18n="st_edit">编辑 prices.json</button>
+            <button class="btn" id="set-export2" data-i18n="st_export">导出全部 CSV</button>
+          </div>
+        </div>
+        <div class="panel set-card">
+          <h3 data-i18n="st_about">关于</h3>
+          <div class="kv"><b data-i18n="st_version">版本</b><span id="set-version">—</span></div>
+          <div class="desc" data-i18n="st_about_desc">监控本地 Devin CLI 的 token 用量与估算费用。credits/ACU 为服务端数据，本地仅按 token × 单价估算。</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+  <button type="button" class="x" id="drawer-x" aria-label="关闭" data-label="close">
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="m4 4 8 8m0-8-8 8"/></svg>
+  </button><div id="drawer-body"></div>
+</div></div>
+<div id="toast"></div>
+
+<script>
+<!-- dashboard-script -->
+</script>
+</body></html>

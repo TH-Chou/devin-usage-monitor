@@ -31,7 +31,7 @@ test('day-over-day KPI is finite for zero and missing prior-day values', () => {
 });
 
 test('dashboard themes and token insights are included', () => {
-  for (const theme of ['midnight', 'graphite', 'paper', 'ocean', 'forest']) {
+  for (const theme of ['midnight', 'graphite', 'paper', 'ocean', 'forest', 'porcelain', 'apricot', 'plum']) {
     assert.match(source, new RegExp(`data-theme=\\"${theme}\\"`));
     assert.match(source, new RegExp(`option value=\\"${theme}\\"`));
   }
@@ -72,7 +72,7 @@ test('dashboard is adapted to a nonce-CSP VS Code Webview', () => {
   assert.match(html, /vscodeApi\.postMessage\(\{action:'ready'\}\)/);
   assert.match(html, /window\.update\(message\.snapshot\)/);
   assert.match(html, /window\.showBody\(message\.rid/);
-  assert.doesNotMatch(html, /if\(native_\)document\.body\.classList\.add\('glass-app'\)/);
+  assert.doesNotMatch(html, /<body class="native-shell"/);
   assert.doesNotMatch(html, /<script>(?!<)/);
 
   const scripts = [...html.matchAll(/<script nonce="testNonce123">([\s\S]*?)<\/script>/g)];
@@ -81,4 +81,43 @@ test('dashboard is adapted to a nonce-CSP VS Code Webview', () => {
     const result = spawnSync(process.execPath, ['--check'], { input: script, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
   }
+});
+
+test('inclusive reporting dates cross months, leap day, and DST boundaries', () => {
+  const code = source.slice(source.indexOf('const reportDayMs='), source.indexOf('function syncReportModels'));
+  const range = vm.runInNewContext(code + '\nreportRange');
+  assert.equal(range('7d', '2024-03-04').start, '2024-02-27');
+  assert.equal(range('30d', '2025-03-11').start, '2025-02-10');
+  assert.equal(range('mtd', '2025-11-02').start, '2025-11-01');
+  assert.equal(range('today', '2025-11-02').end, '2025-11-02');
+  assert.equal(range('all', '2025-11-02').start, '');
+});
+
+test('requests can be found by ID and ranked by all four token classes', () => {
+  const code = source.slice(source.indexOf('const reqDay='), source.indexOf('function toggleReq'));
+  const base = {ts:'2026-11-26T12:00:00+08:00', model:'A', session_title:'Example',
+    session_id:'test',input:1,output:1,cache_read:0,cache_creation:0};
+  const reqs = [{...base,request_id:'Req-A',cost:2},{...base,request_id:'Req-B',cache_creation:5,cost:1}];
+  const context = {DATA:{requests:reqs},filt:{sort:'tokens'},dayKey:()=>''};
+  const rows = vm.runInNewContext(code + '\nfilteredReqs', context);
+  assert.equal(rows()[0].request_id, 'Req-B');
+  context.filt.sort='cost';
+  assert.equal(rows()[0].request_id,'Req-A');
+  context.filt.q='req-b';
+  assert.equal(rows().length,1);
+  assert.equal(rows()[0].request_id,'Req-B');
+});
+
+test('shared UI ships solid fills and supports reduced motion', () => {
+  assert.doesNotMatch(source, /(?:linear|radial|conic)-gradient\s*\(|<(?:linear|radial)Gradient\b/i);
+  assert.doesNotMatch(source, /backdrop-filter\s*:[^;}]*blur\(/i);
+  assert.match(source, /prefers-reduced-motion/);
+});
+
+test('the extension manifest resolves to the staged extension artwork', () => {
+  const extensionRoot = path.resolve(__dirname, '..');
+  const { icon } = require('../package.json');
+  const packaged = fs.readFileSync(path.join(extensionRoot, icon));
+  const artwork = fs.readFileSync(path.join(extensionRoot, '..', 'assets', 'vsix-icon.png'));
+  assert.deepEqual(packaged, artwork);
 });

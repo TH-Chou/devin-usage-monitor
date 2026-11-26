@@ -51,7 +51,10 @@ from Foundation import (
     NSObject,
     NSTimer,
 )
-from WebKit import WKWebView, WKWebViewConfiguration
+from WebKit import (
+    WKUserScript, WKUserScriptInjectionTimeAtDocumentEnd,
+    WKWebView, WKWebViewConfiguration,
+)
 
 from . import __version__
 from .aggregator import UsageAggregator
@@ -65,6 +68,29 @@ LOGIN_AGENT_LABEL = "com.local.devin-token-monitor"
 NSVariableStatusItemLength = -1.0
 
 _delegate = None  # keep a strong ref; NSApplication.delegate is weak
+
+# AppKit chrome shares the page's theme, including system appearance changes.
+_NATIVE_PALETTE_SCRIPT = """
+(() => {
+  const root = document.documentElement;
+  let previous = '';
+  function sendPalette() {
+    const style = getComputedStyle(root);
+    const colors = ['canvas', 'fg', 'dim', 'brd', 'accent'].map(
+      key => style.getPropertyValue('--' + key).trim()
+    );
+    const signature = colors.join(',');
+    if (signature !== previous) {
+      previous = signature;
+      window.webkit.messageHandlers.dtm.postMessage({action: 'palette', colors});
+    }
+  }
+  new MutationObserver(sendPalette).observe(root, {attributes: true, attributeFilter: ['data-theme']});
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sendPalette);
+  matchMedia('(prefers-contrast: more)').addEventListener('change', sendPalette);
+  sendPalette();
+})();
+"""
 
 
 def _login_plist_path() -> Path:
@@ -279,9 +305,8 @@ class AppDelegate(NSObject):
             self._last_poll_error = str(e)
             print(f"warning: {e}")
 
-        # ---- main window: opaque, Apple-Settings style ----
-        # Standard opaque window; the page itself is solid white. Traffic
-        # lights float over the sidebar (full-size content view).
+        # One full-size content view keeps the page continuous behind the
+        # navigation rail and toolbar actions.
         style = (
             NSWindowStyleMaskTitled
             | NSWindowStyleMaskClosable
@@ -297,6 +322,8 @@ class AppDelegate(NSObject):
         self.window.setMinSize_(NSMakeSize(860, 560))
         self.window.setTitlebarAppearsTransparent_(True)
         self.window.setTitleVisibility_(NSWindowTitleHidden)
+        if hasattr(self.window, "setTitlebarSeparatorStyle_"):
+            self.window.setTitlebarSeparatorStyle_(AK.NSTitlebarSeparatorStyleNone)
         self.window.setMovableByWindowBackground_(True)
         # disallow automatic window tabbing — otherwise the window can get
         # absorbed into a tab group and collapse to a stub frame
@@ -367,14 +394,21 @@ class AppDelegate(NSObject):
         config.userContentController().addScriptMessageHandler_name_(
             self, "dtm"
         )
+        config.userContentController().addUserScript_(
+            WKUserScript.alloc().initWithSource_injectionTime_forMainFrameOnly_(
+                _NATIVE_PALETTE_SCRIPT, WKUserScriptInjectionTimeAtDocumentEnd, True
+            )
+        )
         self.webview = WKWebView.alloc().initWithFrame_configuration_(
             rect, config
         )
         self.webview.setNavigationDelegate_(self)
         self._build_native_shell(rect)
-        self.webview.loadHTMLString_baseURL_(
-            PAGE.replace('<body>', '<body class="native-shell">'), None
-        )
+        page = PAGE.replace('<body>', '<body class="native-shell">')
+        if self.window.appearance() is not None:
+            # _apply_native_theme assigns an appearance only to recognized themes.
+            page = page.replace("<html ", f'<html data-theme="{self._theme}" ', 1)
+        self.webview.loadHTMLString_baseURL_(page, None)
 
         # last-line defence: if anything collapsed the frame during setup,
         # put it back to a sane size while it's still on screen
@@ -394,23 +428,17 @@ class AppDelegate(NSObject):
         )
 
     @objc.python_method
-    def _glass(self, frame, radius):
-        glass_class = getattr(AK, "NSGlassEffectView", None)
-        glass = (glass_class or AK.NSVisualEffectView).alloc().initWithFrame_(frame)
-        content = AK.NSView.alloc().initWithFrame_(glass.bounds())
-        content.setAutoresizingMask_(AK.NSViewWidthSizable | AK.NSViewHeightSizable)
-        if glass_class:
-            glass.setStyle_(AK.NSGlassEffectViewStyleRegular)
-            glass.setCornerRadius_(radius)
-            glass.setContentView_(content)
-        else:
-            glass.setMaterial_(AK.NSVisualEffectMaterialSidebar)
-            glass.setBlendingMode_(AK.NSVisualEffectBlendingModeBehindWindow)
-            glass.setWantsLayer_(True)
-            glass.layer().setCornerRadius_(radius)
-            glass.layer().setMasksToBounds_(True)
-            glass.addSubview_(content)
-        return glass, content
+    def _rule(self, parent, frame, mask):
+        rule = AK.NSBox.alloc().initWithFrame_(frame)
+        rule.setBoxType_(AK.NSBoxCustom)
+        rule.setBorderType_(AK.NSNoBorder)
+        rule.setTitlePosition_(AK.NSNoTitle)
+        rule.setCornerRadius_(0)
+        rule.setFillColor_(AK.NSColor.separatorColor())
+        rule.setAccessibilityElement_(False)
+        rule.setAutoresizingMask_(mask)
+        parent.addSubview_(rule)
+        return rule
 
     @objc.python_method
     def _label(self, parent, text, frame, size, weight, secondary=False):
@@ -433,30 +461,25 @@ class AppDelegate(NSObject):
         self.webview.setFrame_(self.shell.bounds())
         self.webview.setAutoresizingMask_(AK.NSViewWidthSizable | AK.NSViewHeightSizable)
         self.shell.addSubview_(self.webview)
-        self.sidebar, content = self._glass(NSMakeRect(10, 10, 210, height - 58), 22)
+        self.sidebar = AK.NSView.alloc().initWithFrame_(NSMakeRect(10, 10, 210, height - 58))
         self.sidebar.setAutoresizingMask_(AK.NSViewHeightSizable)
         self.shell.addSubview_(self.sidebar)
         top = height - 58
-        title = self._label(content, "Devin Token", NSMakeRect(20, top - 58, 172, 26),
-                            19, AK.NSFontWeightSemibold)
-        self._subtitle = self._label(content, self._nl("logo_sub"),
-                                     NSMakeRect(20, top - 79, 172, 20),
+        self._rail_rule = self._rule(self.sidebar, NSMakeRect(209, 0, 1, top), AK.NSViewHeightSizable)
+        self._title = self._label(self.sidebar, "Devin Token", NSMakeRect(16, top - 58, 178, 32),
+                                  23, AK.NSFontWeightBold)
+        self._subtitle = self._label(self.sidebar, self._nl("logo_sub"),
+                                     NSMakeRect(16, top - 77, 178, 20),
                                      11, AK.NSFontWeightRegular, True)
-        subtitle = self._subtitle
-        for label in (title, subtitle):
+        for label in (self._title, self._subtitle):
             label.setAutoresizingMask_(AK.NSViewMinYMargin)
         self._views = ("overview", "insights", "models", "sessions", "requests", "settings")
         self._nav_buttons = []
-        self.selection = AK.NSBox.alloc().initWithFrame_(NSMakeRect(10, top - 142, 190, 38))
-        self.selection.setBoxType_(AK.NSBoxCustom)
-        self.selection.setBorderType_(AK.NSNoBorder)
-        self.selection.setTitlePosition_(AK.NSNoTitle)
-        self.selection.setCornerRadius_(12)
+        self.selection = self._rule(self.sidebar, NSMakeRect(6, top - 135, 3, 24), AK.NSViewMinYMargin)
         self._native_accent = AK.NSColor.controlAccentColor()
+        self._native_ink = AK.NSColor.labelColor()
         self._apply_native_theme(self._theme)
-        self.selection.setFillColor_(self._native_accent.colorWithAlphaComponent_(0.14))
-        self.selection.setAutoresizingMask_(AK.NSViewMinYMargin)
-        content.addSubview_(self.selection)
+        self.selection.setFillColor_(self._native_accent)
         items = (("nav_overview", "chart.bar"), ("nav_insights", "chart.xyaxis.line"),
                  ("nav_models", "square.stack"), ("nav_sessions", "bubble.left"),
                  ("nav_requests", "list.bullet"), ("nav_settings", "slider.horizontal.3"))
@@ -468,28 +491,31 @@ class AppDelegate(NSObject):
             button.setBordered_(False)
             button.setAlignment_(AK.NSTextAlignmentLeft)
             image = AK.NSImage.imageWithSystemSymbolName_accessibilityDescription_(symbol, title)
-            button.setImage_(image.imageWithSymbolConfiguration_(
-                AK.NSImageSymbolConfiguration.configurationWithPointSize_weight_(18, AK.NSFontWeightRegular)
-            ))
+            button.setImage_(image)
             button.setImagePosition_(AK.NSImageLeft)
             button.setTag_(index)
             button.setTarget_(self)
             button.setAction_("navigate:")
             button.setAccessibilityLabel_(title)
             button.setAutoresizingMask_(AK.NSViewMinYMargin)
-            content.addSubview_(button)
+            self.sidebar.addSubview_(button)
             self._nav_buttons.append(button)
-        self._side_lbl = self._label(content, self._nl("side_cost"),
-                                     NSMakeRect(20, 82, 170, 18),
+        self._side_lbl = self._label(self.sidebar, self._nl("side_cost"),
+                                     NSMakeRect(16, 82, 178, 18),
                                      11, AK.NSFontWeightRegular, True)
-        self.side_cost = self._label(content, "—", NSMakeRect(20, 43, 170, 36),
+        self.side_cost = self._label(self.sidebar, "—", NSMakeRect(16, 43, 184, 36),
                                      26, AK.NSFontWeightSemibold)
-        self.side_requests = self._label(content, self._nl("side_loading"),
-                                         NSMakeRect(20, 22, 170, 18),
+        self.side_cost.setFont_(AK.NSFont.monospacedDigitSystemFontOfSize_weight_(26, AK.NSFontWeightSemibold))
+        self.side_requests = self._label(self.sidebar, self._nl("side_loading"),
+                                         NSMakeRect(16, 22, 178, 18),
                                          11, AK.NSFontWeightRegular, True)
-        self.toolbar, actions = self._glass(NSMakeRect(width - 118, height - 62, 88, 36), 18)
+        self.toolbar = AK.NSView.alloc().initWithFrame_(NSMakeRect(width - 118, height - 62, 88, 36))
         self.toolbar.setAutoresizingMask_(AK.NSViewMinXMargin | AK.NSViewMinYMargin)
         self.shell.addSubview_(self.toolbar)
+        self._action_rule = self._rule(self.toolbar, NSMakeRect(43, 9, 1, 18), AK.NSViewNotSizable)
+        action_symbols = AK.NSImageSymbolConfiguration.configurationWithPointSize_weight_(
+            15, AK.NSFontWeightMedium
+        )
         self._tb_btns = []
         for index, (key, symbol, action) in enumerate((
             ("tip_refresh", "arrow.clockwise", "refresh:"),
@@ -499,12 +525,13 @@ class AppDelegate(NSObject):
             button = AK.NSButton.alloc().initWithFrame_(NSMakeRect(4 + index * 40, 2, 40, 32))
             button.setBordered_(False)
             button.setImage_(AK.NSImage.imageWithSystemSymbolName_accessibilityDescription_(symbol, title))
+            button.setSymbolConfiguration_(action_symbols)
             button.setImagePosition_(AK.NSImageOnly)
             button.setToolTip_(title)
             button.setAccessibilityLabel_(title)
             button.setTarget_(self)
             button.setAction_(action)
-            actions.addSubview_(button)
+            self.toolbar.addSubview_(button)
             self._tb_btns.append(button)
         self._select_navigation("overview")
 
@@ -535,20 +562,42 @@ class AppDelegate(NSObject):
 
     @objc.python_method
     def _apply_native_theme(self, theme):
-        accents = {
-            "midnight": "#8ca8ff", "graphite": "#b7c3cc",
-            "paper": "#96613f", "ocean": "#59bce9", "forest": "#88cb96",
-        }
-        color = accents.get(theme)
-        if color:
-            rgb = tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5))
-            self._native_accent = AK.NSColor.colorWithSRGBRed_green_blue_alpha_(*rgb, 1)
+        if theme in ("midnight", "graphite", "ocean", "forest", "plum"):
+            appearance = AK.NSAppearanceNameDarkAqua
+        elif theme in ("paper", "porcelain", "apricot"):
+            appearance = AK.NSAppearanceNameAqua
         else:
-            self._native_accent = AK.NSColor.controlAccentColor()
-        if hasattr(self, "selection"):
-            self.selection.setFillColor_(self._native_accent.colorWithAlphaComponent_(0.14))
-        if getattr(self, "_nav_buttons", None):
-            self._select_navigation(getattr(self, "_current_view", "overview"))
+            appearance = None
+        self.window.setAppearance_(AK.NSAppearance.appearanceNamed_(appearance) if appearance else None)
+
+    @objc.python_method
+    def _apply_page_palette(self, colors):
+        if not colors or len(colors) != 5:
+            return
+        palette = []
+        for value in colors:
+            if not isinstance(value, str) or not value.startswith("#"):
+                return
+            digits = value[1:]
+            if len(digits) == 3:
+                digits = "".join(ch * 2 for ch in digits)
+            if len(digits) != 6 or any(ch not in "0123456789abcdefABCDEF" for ch in digits):
+                return
+            rgb = tuple(int(digits[i:i + 2], 16) / 255 for i in (0, 2, 4))
+            palette.append(AK.NSColor.colorWithSRGBRed_green_blue_alpha_(*rgb, 1))
+        canvas, self._native_ink, muted, border, self._native_accent = palette
+        self.window.setBackgroundColor_(canvas)
+        self.webview.setUnderPageBackgroundColor_(canvas)
+        self._rail_rule.setFillColor_(border)
+        self._action_rule.setFillColor_(border)
+        self.selection.setFillColor_(self._native_accent)
+        for label in (self._title, self.side_cost):
+            label.setTextColor_(self._native_ink)
+        for label in (self._subtitle, self._side_lbl, self.side_requests):
+            label.setTextColor_(muted)
+        for button in self._tb_btns:
+            button.setContentTintColor_(self._native_ink)
+        self._select_navigation(self._current_view)
 
     @_guarded
     def windowKey_(self, _note):
@@ -565,10 +614,15 @@ class AppDelegate(NSObject):
         index = self._views.index(view)
         self._current_view = view
         frame = self._nav_buttons[index].frame()
-        self.selection.setFrameOrigin_((10, frame.origin.y))
+        self.selection.setFrameOrigin_((6, frame.origin.y + 7))
         for i, button in enumerate(self._nav_buttons):
+            weight = AK.NSFontWeightSemibold if i == index else AK.NSFontWeightRegular
+            button.setFont_(AK.NSFont.systemFontOfSize_weight_(13, weight))
+            button.setSymbolConfiguration_(
+                AK.NSImageSymbolConfiguration.configurationWithPointSize_weight_(17, weight)
+            )
             button.setContentTintColor_(self._native_accent if i == index
-                                        else AK.NSColor.labelColor())
+                                        else self._native_ink)
             button.setAccessibilityValue_(self._nl("sel_on") if i == index else "")
 
     @_guarded
@@ -617,6 +671,8 @@ class AppDelegate(NSObject):
         action = body.objectForKey_("action") if body else None
         if action == "jserr":
             print(f"PAGE JS ERROR: {body.objectForKey_('msg')}")
+        elif action == "palette":
+            self._apply_page_palette(body.objectForKey_("colors"))
         elif action == "navigate":
             self._select_navigation(str(body.objectForKey_("view") or ""))
         elif action == "refresh":
@@ -646,6 +702,10 @@ class AppDelegate(NSObject):
             except Exception as e:
                 print(f"setTheme error: {e}")
             self.push()
+        elif action == "usageReport":
+            query_id = int(body.objectForKey_("queryId"))
+            filters = tuple(str(body.objectForKey_(key) or "") for key in ("start", "end", "model"))
+            threading.Thread(target=self._send_usage_report, args=(query_id, filters), daemon=True).start()
         elif action == "getBody":
             # lazy-load one request's reply body off the main thread, then
             # deliver back into the page
@@ -683,6 +743,15 @@ class AppDelegate(NSObject):
             self.window.center()
 
     # ---- lazy request body ------------------------------------------------
+
+    @objc.python_method
+    def _send_usage_report(self, query_id, filters):
+        try:
+            report, error = self.agg.usage_report(*filters), None
+        except Exception as exc:
+            report, error = None, str(exc)
+        args = ", ".join(json.dumps(value) for value in (query_id, report, error))
+        self.performSelectorOnMainThread_withObject_waitUntilDone_("evalJS:", f"showUsageReport({args})", False)
 
     def _fetch_body(self, rid, mid):
         try:

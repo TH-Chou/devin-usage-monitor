@@ -1,3 +1,3 @@
 """Monitor local Devin CLI token usage from sessions.db."""
 
-__version__ = "0.3.5"
+__version__ = "0.4.3"

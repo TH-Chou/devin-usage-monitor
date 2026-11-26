@@ -29,7 +29,7 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 | | |
 |---|---|
 | **菜单栏实时费用** | 状态栏直接显示今日估算费用，点开看摘要；关窗不退出，菜单或 Dock 随时重开。 |
-| **Liquid Glass 仪表盘** | 原生 `NSWindow` + `WKWebView`（无 HTTP 服务）：KPI 卡片、token/费用趋势（近 24h / 14 天）、模型环形图、token 构成、缓存命中率、星期×小时热力图、会话成本排行、成本/速度散点图。 |
+| **用量仪表盘** | 原生 `NSWindow` + `WKWebView`（无 HTTP 服务）：KPI 卡片、token/费用趋势（近 24h / 14 天）、模型环形图、token 构成、缓存命中率、星期×小时热力图、会话成本排行、成本/速度散点图。 |
 | **单请求明细** | 模型、延迟、TTFT、tokens/s、单次费用——点任意模型/会话/请求下钻；响应体懒加载，快照保持轻量。 |
 | **可编辑价格表** | `prices.json` 内置约 140 个模型的每 1M input/output/cache 单价；精确 → 前缀 → 族名匹配，支持 reasoning-effort 后缀。 |
 | **预算告警** | 可选 `daily_budget`，超预算时每天一次 macOS 通知。 |
@@ -37,7 +37,7 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 | **七种语言** | 中文 · English · Русский · 日本語 · 한국어 · Español · Tiếng Việt —— 持久化保存，页面与原生界面同时生效。 |
 | **自动刷新** | `row_id` 水位线增量轮询（约 15s）；启动时全量聚合约 0.3s。 |
 | **IDE 扩展** | 面向桌面版 VS Code 和兼容 IDE 的 VSIX：状态栏费用、仪表盘 Webview、数据库选择、价格表编辑与 CSV 导出。 |
-| **六套主题** | 跟随系统、午夜蓝、石墨、暖纸、深海、森林；选择会持久化。 |
+| **九套主题** | 跟随系统、午夜蓝、石墨、暖纸、深海、森林、青瓷、杏陶、夜梅。选择会自动保存。图表、导航和会话详情使用实色背景、细分隔线和对齐的数字。 |
 | **Token 深度分析** | 7/30 天与本月至今统计、月末消耗趋势预测、缓存节省估算、输出效率、模型对比及请求规模/延迟 P50/P90 分位。 |
 | **本地数据可靠性** | 只读 SQLite 支持含特殊字符的路径和数据库轮换检测；来源状态会提示轮询错误，设置写入用户目录而非安装包。 |
 
@@ -58,10 +58,12 @@ Devin CLI 把每条请求的 token 指标都写进了本地 SQLite 数据库 —
 cd vscode-extension
 npm install
 npm run package
-code --install-extension devin-token-monitor-0.3.5.vsix
+code --install-extension devin-token-monitor-0.4.3.vsix
 ```
 
 随后在命令面板运行 **Devin Token Monitor: Open Dashboard**。要求本机 Python 3.10+。Cursor 支持 VSIX 兼容扩展；Windsurf 和其他分支版本的兼容性取决于其当前 VS Code API 与扩展安装策略。浏览器版 VS Code（`vscode.dev` / `github.dev`）不支持，因为它不能启动本机 Python worker 或访问本地 SQLite 数据库。详见 [`vscode-extension/README.md`](vscode-extension/README.md) 和[兼容性调研](vscode-extension/RESEARCH.md)。
+
+在 **分析** 页按本地日期和模型筛选全部历史，查看每日趋势、Token 构成和费用排名。在 **请求** 页可搜索最近 5,000 条请求，按费用、Token 数或耗时排序，翻页查看明细。
 
 ## macOS App 源码构建
 

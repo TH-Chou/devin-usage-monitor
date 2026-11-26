@@ -2,7 +2,7 @@
   "name": "devin-token-monitor",
   "displayName": "Devin Token Monitor",
   "description": "Monitor local Devin CLI token usage and estimated cost from VS Code, Cursor, and compatible desktop IDEs.",
-  "version": "0.3.5",
+  "version": "0.4.3",
   "publisher": "th-chou",
   "license": "Apache-2.0",
   "homepage": "https://github.com/TH-Chou/devin-usage-monitor",
@@ -84,6 +84,23 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Show today's estimated cost in the VS Code status bar."
+        },
+        "devinTokenMonitor.statusBarMetric": {
+          "type": "string",
+          "enum": [
+            "cost",
+            "tokens",
+            "requests",
+            "cache"
+          ],
+          "enumDescriptions": [
+            "Estimated USD cost",
+            "Total tokens including cache reads and writes",
+            "Number of requests",
+            "Cache read tokens as a share of input and cache reads"
+          ],
+          "default": "cost",
+          "description": "Today's metric shown in the IDE status bar."
         }
       }
     }
